@@ -136,6 +136,9 @@ class PeerGuard(HookTest):
         confirm.save(self.ROLE, {"id": "c0ffee00", "at": time.time(), "used": False})
         self.assertPasses("AIMOST_CONFIRM=c0ffee00 git push origin x")
         self.assertDenied("AIMOST_CONFIRM=c0ffee00 git push origin x")
+        confirm.save(self.ROLE, {"id": "c0ffee01", "at": time.time(), "used": False, "merges": ["api!5"]})
+        self.assertDenied("AIMOST_CONFIRM=c0ffee01 glab mr merge 6 -R g/api")
+        self.assertPasses("AIMOST_CONFIRM=c0ffee01 glab mr merge 5 -R g/api")
 
     def test_relative_redirects_follow_cd_and_cwd(self):
         self.peer_post()
@@ -291,6 +294,24 @@ class ConfirmGuard(HookTest):
         self.assertTrue(self.denied(r))
         self.assertIn("CLI mode: ask the owner in the terminal", r.stdout)
 
+    def test_a_merge_only_for_the_merge_requests_in_merges(self):
+        self.owner_message()
+        rec = {"action": "close the review", "at": time.time(), "used": False, "mrs": ["api!46", "api!47"],
+               "merges": ["api!47"]}
+        confirm.save(self.ROLE, dict(rec, id="aaaa0001"))
+        r = self.guard("AIMOST_CONFIRM=aaaa0001 glab mr merge 46 --repo group/api --yes")
+        self.assertTrue(self.denied(r), "api!46 is in the card, not in merges")
+        self.assertIn("does not name api!46 in merges", r.stdout)
+        self.assertFalse(confirm.peek(self.ROLE, "aaaa0001")["used"], "a refused merge does not spend it")
+        confirm.save(self.ROLE, dict(rec, id="aaaa0002"))
+        self.assertFalse(self.denied(self.guard("AIMOST_CONFIRM=aaaa0002 glab mr merge 47 --repo group/api --yes")))
+        confirm.save(self.ROLE, dict(rec, id="aaaa0003"))
+        self.assertTrue(self.denied(self.guard("AIMOST_CONFIRM=aaaa0003 glab mr merge 47")), "which one — cannot tell")
+        confirm.save(self.ROLE, dict(rec, id="aaaa0004"))
+        self.assertFalse(self.denied(self.guard(f"AIMOST_CONFIRM=aaaa0004 {self.DEPLOY}")), "not a merge — as before")
+        confirm.save(self.ROLE, {"id": "aaaa0005", "action": "x", "at": time.time(), "used": False, "merges": []})
+        self.assertTrue(self.denied(self.guard("AIMOST_CONFIRM=aaaa0005 gh pr merge 3 -R o/web")))
+
     def test_codex_exit_2(self):
         os.environ["AIMOST_ROLE"] = self.ROLE
         paths.private_dir(paths.marks_dir())
@@ -299,6 +320,39 @@ class ConfirmGuard(HookTest):
         self.assertEqual(r.code, 2)
         self.assertIn("aimost confirm", r.stderr)
         self.assertEqual(self.guard("ls", session_id="cx-1", turn_id="t2").code, 0)
+
+
+class QuoteGuard(HookTest):
+    BT = "`"
+
+    def guard(self, cmd):
+        return self.hook("quote-guard", tool_name="Bash", tool_input={"command": cmd})
+
+    def test_back_ticks_inside_double_quotes(self):
+        bt = self.BT
+        cases = [
+            (f'aimost post --thread T "Earlier {bt}@ann{bt} inside {bt}@bob-ops{bt} muted"', True, "post"),
+            (f'glab mr note 5 --repo g/x -m "see {bt}bin/x{bt}"', True, "glab mr note"),
+            (f'cd ~/x && glab mr create --title t --description "field {bt}a{bt}"', True, "glab mr create"),
+            (f'glab -R g/x mr note 5 -m "see {bt}bin/x{bt}"', True, "flags before mr"),
+            (f'gh pr create --body "x {bt}y{bt}"', True, "gh pr create"),
+            (f'aimost confirm --spec a.json --to "{bt}x{bt}"', True, "confirm"),
+            (f'aimost post --thread T "$(cat <<\'X\'\nEarlier {bt}@ann{bt} inside\nX\n)"', False, "quoted heredoc in $(cat)"),
+            (f"aimost post --thread T --ask q.json <<'EOF'\n{bt}code{bt}\nEOF", False, "quoted heredoc"),
+            (f'aimost post --thread T "$(cat <<X\n{bt}code{bt}\nX\n)"', True, "unquoted heredoc — substituted"),
+            (f"aimost post --thread T 'single {bt}code{bt} — text'", False, "single quotes"),
+            (f'aimost post --channel dm "Start: \\{bt}x\\{bt}"', False, "escaped back-tick"),
+            ('aimost post --thread T "build $(git rev-parse --short HEAD) done"', False, "$(…) without back-ticks"),
+            (f'echo "{bt}date{bt}"', False, "another command — not ours"),
+            (f'glab mr view 5 --repo g/x "{bt}x{bt}"', False, "glab mr view is not post text"),
+            (f"# it's a note\naimost post --thread T \"x {bt}y{bt}\"", True, "an apostrophe in a comment"),
+            (f"printf $'a\\'b'; aimost post --thread T \"x {bt}y{bt}\"", True, "$'…\\'…' does not derail"),
+        ]
+        for cmd, deny, why in cases:
+            self.assertEqual(self.denied(self.guard(cmd)), deny, why)
+        r = self.guard(f'aimost post "a {bt}@ann{bt}"')
+        self.assertIn("heredoc", r.stdout)
+        self.assertFalse(self.denied(self.hook("quote-guard", tool_name="Edit", tool_input={"file_path": "x"})))
 
 
 # ── inbox delivery ─────────────────────────────────────────────────────────────────────────────────────────────────────

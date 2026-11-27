@@ -243,7 +243,9 @@ def orphan(box: inbox.Inbox, n: int, why: str) -> None:
     text = (f"✋ {box.name}: {n} unread in the inbox, but there is nobody to wake — {why}. Start it: "
             + hint.replace("{role}", box.name) + ".")
     try:
-        r = subprocess.run(post_argv() + ["--via", via, "--channel", "dm", text], capture_output=True, text=True,
+        # --plain: the text is the tool's own, one line — the layout check (code 11) would refuse it for a long session
+        # name, and the owner would never learn that the session has nobody to wake it
+        r = subprocess.run(post_argv() + ["--via", via, "--channel", "dm", "--plain", text], capture_output=True, text=True,
                            timeout=30, env=dict(os.environ, AIMOST_ROLE=box.name))
         ok = r.returncode == 0
     except (OSError, subprocess.TimeoutExpired):

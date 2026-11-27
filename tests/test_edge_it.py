@@ -207,7 +207,9 @@ class ConfirmThroughEdge(helpers.IsolatedTest):
 
         def run():
             try:
-                out["id"] = confirm.request("deployer", "restart api " + uuid.uuid4().hex[:6], via="it", timeout=30)
+                spec = {"do": "restart api " + uuid.uuid4().hex[:6], "why": "a test", "steps": ["api restarts"],
+                        "keeps": "the data", "rollback": "nothing to undo", "mrs": [], "merges": [], "commands": []}
+                out["id"] = confirm.request("deployer", spec, via="it", timeout=30)
             except confirm.ConfirmError as e:
                 out["err"] = (e.code, str(e))
         t = threading.Thread(target=run)
@@ -229,3 +231,5 @@ class ConfirmThroughEdge(helpers.IsolatedTest):
         self.assertEqual(out.get("id"), post["props"]["aimost_confirm_request"], out)
         done = mm.api(conn, "GET", f"/posts/{post['id']}", token=IT["AIMOST_IT_TOKEN_OWNER"])
         self.assertIn("✅ confirmed — @owner", done["message"])
+        self.assertIn("**Stays the same:** the data", done["message"], "the edge kept the text the owner saw")
+        self.assertNotIn("_One “yes”", done["message"])

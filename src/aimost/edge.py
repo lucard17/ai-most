@@ -411,8 +411,12 @@ class Edge:
             return 200, {"ephemeral_text": "💬 The discussion opens in your DM with the session's bot in a few seconds."}
         if kind == "confirm":
             done = {"answer": ctx["answer"], "by": user, "user_id": uid, "id": ctx["id"], "at": _now_ms()}
-            msg, atts = confirm.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"),
-                                               self.action_url, auth, done=done)
+            if ctx.get("v") == 2:                # described by fields: the text stays what the presser saw
+                post = self.api("GET", f"/posts/{post_id}") or {}
+                msg, atts = confirm.confirm_done(post.get("message") or "", done), []
+            else:                                # the first form (what/details in the button)
+                msg, atts = confirm.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"),
+                                                   self.action_url, auth, done=done)
             props = {"attachments": atts, "aimost_confirm": done, "aimost_confirm_request": ctx["id"]}
             if ctx.get("agent"):
                 props["agent"] = ctx["agent"]

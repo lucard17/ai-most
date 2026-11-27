@@ -16,6 +16,10 @@ from itenv import IT, requires_mattermost
 
 from aimost import confirm, mattermost as mm, paths
 
+SPEC = {"do": "deploy api v1.2", "why": "the owner asked", "steps": ["the new image starts on web-1"],
+        "keeps": "the database", "rollback": "redeploy v1.1", "mrs": ["api!12"], "merges": ["api!12"],
+        "commands": ["ansible-playbook deploy.yml"]}
+
 
 class Patterns(IsolatedTest):
     def test_defaults_and_user_file_add_up(self):
@@ -113,7 +117,7 @@ class RealServer(IsolatedTest):
 
         def go():
             try:
-                out["id"] = confirm.request(role, "deploy api", "v1.2", thread=self.root["id"], **kw)
+                out["id"] = confirm.request(role, SPEC, thread=self.root["id"], **kw)
             except confirm.ConfirmError as e:
                 out["code"] = e.code
             except Exception as e:  # surfaced by the assertions on out
@@ -148,6 +152,12 @@ class RealServer(IsolatedTest):
         self.press(post, IT["AIMOST_IT_USER_ID_COLLEAGUE"], "colleague")
         t.join(20)
         self.assertIn("id", out, out)
+        self.assertIn("🛡 **Confirm: deploy api v1.2**", post["message"])
+        self.assertIn("- **MR:** api!12 — not checked", post["message"], "no card plugin answered")
+        self.assertNotIn("ansible-playbook", post["message"], "commands are not posted")
+        rec = confirm.peek("deployer", out["id"])
+        self.assertEqual((rec["action"], rec["merges"], rec["commands"]),
+                         ("deploy api v1.2", ["api!12"], ["ansible-playbook deploy.yml"]))
         self.assertIsNone(confirm.spend("deployer", out["id"]), "the record is fresh and unused")
 
     def test_outsider_press_does_not_count_and_expires(self):
@@ -157,7 +167,7 @@ class RealServer(IsolatedTest):
         t.join(20)
         self.assertEqual(out.get("code"), 2)
         msg = mm.api(self.conn, "GET", f"/posts/{post['id']}", token=self.owner_tok)["message"]
-        self.assertTrue(msg.endswith("⌛ expired without an answer"), msg)
+        self.assertTrue(msg.endswith("**Rollback:** redeploy v1.1\n\n⌛ expired without an answer"), msg)
 
     def test_owner_declines(self):
         t, out = self.run_request(timeout=20)
@@ -176,13 +186,26 @@ class RealServer(IsolatedTest):
 
     def test_to_outside_allowed_no_post(self):
         with self.assertRaises(confirm.ConfirmError) as e:
-            confirm.request("deployer", "x", thread=self.root["id"], to=["outsider"])
+            confirm.request("deployer", SPEC, thread=self.root["id"], to=["outsider"])
         self.assertEqual(e.exception.code, 2)
         self.assertIn("outsider", str(e.exception))
 
     def test_not_admitted_or_no_bot_exit_3(self):
-        r = self.aimost("confirm", "deploy", env={"AIMOST_ROLE": "stranger"})
+        import json
+        f = self.tmp / "a.json"
+        f.write_text(json.dumps(SPEC))
+        r = self.aimost("confirm", "--spec", str(f), env={"AIMOST_ROLE": "stranger"})
         self.assertEqual(r.returncode, 3, r.stderr)
+
+    def test_nothing_to_merge_no_post(self):
+        saved = list(confirm.CARDS)
+        confirm.CARDS[:] = [lambda ref, conn: {"title": "T", "state": "merged"}]
+        self.addCleanup(lambda: confirm.CARDS.__setitem__(slice(None), saved))
+        with self.assertRaises(confirm.ConfirmError) as e:
+            confirm.request("deployer", SPEC, thread=self.root["id"])
+        self.assertEqual(e.exception.code, 4)
+        posts = mm.api(self.conn, "GET", f"/posts/{self.root['id']}/thread", token=self.owner_tok)["posts"]
+        self.assertFalse(any((p.get("props") or {}).get("aimost_confirm_request") for p in posts.values()))
 
 
 if __name__ == "__main__":

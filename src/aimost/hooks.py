@@ -4,6 +4,7 @@
                    unread events as context of the turn
     ask-guard      PreToolUse AskUserQuestion — a session with a bot asks the owner in chat, not in the terminal
     confirm-guard  PreToolUse Bash — a dangerous command in a chat-started turn needs the owner's button
+    quote-guard    PreToolUse Bash — no back-tick command substitution in the text of a post or a merge request
     peer-guard     PreToolUse Bash|Edit|Write|NotebookEdit — a turn started by a peer's post is read-only
 
 Every hook exits at once, printing nothing and creating nothing, where the bridge is not installed (no inbox or marks
@@ -235,8 +236,24 @@ def ask_guard(inp: dict) -> Result:
 
 
 # ── confirm guard ──────────────────────────────────────────────────────────────────────────────────────────────────────
-CONFIRM_HOW = ("first `aimost confirm --via <via> --thread <thread> \"<what I do>\" \"<scope: hosts, version, window>\"`, "
-               "then repeat the command with the prefix `AIMOST_CONFIRM=<id> `")
+CONFIRM_HOW = ("first `aimost confirm --via <via> --thread <thread> --spec <action.json>` (fields do, why, steps, keeps, "
+               "rollback, merges — `aimost confirm --help`), then repeat the command with the prefix `AIMOST_CONFIRM=<id> `")
+
+
+def merge_refused(name: str, cid: str, cmd: str, inp: dict) -> Optional[str]:
+    """A merge under a confirmation is covered only when the confirmation names that merge request in ``merges`` — else a
+    "yes" to, say, closing a review with the merge request in its card would cover its merge too. None — not a merge, or
+    covered."""
+    if not confirm.MERGE_CMD.search(cmd):
+        return None
+    rec = confirm.peek(name, cid)
+    if rec is None or "merges" not in rec:
+        return None                      # missing — spend() says so; a record of the first form — as before
+    ref = confirm.merge_ref(cmd, str(inp.get("cwd") or ""))
+    if ref and ref in (rec.get("merges") or []):
+        return None
+    return (f"confirmation {cid} does not name {ref or 'this merge request'} in merges — it is not about its merge. A "
+            f"confirmation with merges: [\"{ref or '<repo>!<N>'}\"] is needed")
 
 
 def confirm_guard(inp: dict) -> Result:
@@ -270,6 +287,9 @@ def confirm_guard(inp: dict) -> Result:
                              "new turn without the mark.")
         return deny(inp, f"{pre}, the command is a dangerous action (pattern «{hit}»). It needs a confirmation by "
                          f"button: {CONFIRM_HOW}.")
+    refused = merge_refused(name, m.group(1), cmd, inp)
+    if refused:
+        return deny(inp, f"🛡 aimost confirm-guard: {refused}: {CONFIRM_HOW}.")
     why = confirm.spend(name, m.group(1))
     if why == "missing":
         return deny(inp, f"🛡 aimost confirm-guard: session {name} has no confirmation {m.group(1)} — {CONFIRM_HOW}.")
@@ -277,6 +297,139 @@ def confirm_guard(inp: dict) -> Result:
         return deny(inp, f"🛡 aimost confirm-guard: confirmation {m.group(1)} is already used or older than 15 minutes — "
                          f"a new one is needed: {CONFIRM_HOW}.")
     return PASS
+
+
+# ── quote guard ────────────────────────────────────────────────────────────────────────────────────────────────────────
+# A post's text in double quotes with `logins` or `code` in back-ticks: the shell runs them as commands and substitutes
+# nothing — the post arrives with holes ("Earlier  inside  muted"), and neither aimost nor the chat can tell. The same with
+# merge request descriptions. Parsed by the shell's quoting rules, not by searching a character: single quotes, an
+# escaped \` inside double quotes and a heredoc body with a quoted delimiter (also inside "$(cat <<'EOF' … EOF)") pass.
+QUOTE_TOOLS = re.compile(r"\baimost\s+(?:post|confirm|channel)\b|"
+                         r"\bglab(?:\s+[^;&|\s]+)*\s+mr\s+(?:create|update|note)\b|"
+                         r"\bgh(?:\s+[^;&|\s]+)*\s+(?:pr|issue)\s+(?:create|edit|comment)\b")
+
+
+def unquoted_backtick(s: str) -> Optional[str]:
+    """Around the first back-tick the shell would execute inside double quotes (or in a heredoc body with an unquoted
+    delimiter), or None."""
+    n, i = len(s), 0
+    stack = ["top"]              # top / sub — unquoted; dq — double; sq — single; ansi — $'…' (single with \-escapes)
+    pending = []                 # heredocs whose body starts with the next line: (delimiter, quoted, <<-)
+    found = None
+
+    def heredoc(i):
+        j = i + 2
+        dash = j < n and s[j] == "-"
+        if dash:
+            j += 1
+        while j < n and s[j] in " \t":
+            j += 1
+        if j < n and s[j] in "'\"":
+            q = s[j]
+            k = s.find(q, j + 1)
+            k = n if k < 0 else k
+            return k + 1, s[j + 1:k], True, dash
+        m = re.match(r"\\?([\w.-]+)", s[j:])
+        if not m:
+            return j, None, False, dash
+        return j + m.end(), m.group(1), m.group(0).startswith("\\"), dash
+
+    while i < n and found is None:
+        c, ctx = s[i], stack[-1]
+        if ctx == "sq":
+            if c == "'":
+                stack.pop()
+            i += 1
+            continue
+        if ctx == "ansi":
+            if c == "\\":
+                i += 2
+                continue
+            if c == "'":
+                stack.pop()
+            i += 1
+            continue
+        if c == "\\":
+            i += 2
+            continue
+        if ctx == "dq":
+            if c == '"':
+                stack.pop()
+            elif c == "`":
+                found = i
+            elif s.startswith("$(", i):
+                stack.append("sub")
+                i += 2
+                continue
+            i += 1
+            continue
+        if c == "#" and (i == 0 or s[i - 1] in " \t\n;|&("):     # a comment: the apostrophe in "# it's" is no quote
+            e = s.find("\n", i)
+            i = n if e < 0 else e
+            continue
+        if s.startswith("$'", i):
+            stack.append("ansi")
+            i += 2
+            continue
+        if c == "'":
+            stack.append("sq")
+        elif c == '"':
+            stack.append("dq")
+        elif s.startswith("$(", i):
+            stack.append("sub")
+            i += 2
+            continue
+        elif c == ")" and ctx == "sub":
+            stack.pop()
+        elif s.startswith("<<", i) and not s.startswith("<<<", i):
+            j, delim, quoted, dash = heredoc(i)
+            if delim:
+                pending.append((delim, quoted, dash))
+            i = j
+            continue
+        elif c == "\n" and pending:
+            j = i + 1
+            for delim, quoted, dash in pending:
+                while j <= n:
+                    e = s.find("\n", j)
+                    e = n if e < 0 else e
+                    line = s[j:e]
+                    if (line.lstrip("\t") if dash else line) == delim:
+                        j = e + 1
+                        break
+                    if not quoted:                   # an unquoted delimiter — the body is substituted
+                        k = line.replace("\\`", "").find("`")
+                        if k >= 0:
+                            found = j + k
+                            break
+                    j = e + 1
+                if found is not None:
+                    break
+            pending = []
+            i = j
+            continue
+        i += 1
+    if found is None:
+        return None
+    a = max(0, found - 30)
+    return s[a:found + 30].replace("\n", " ")
+
+
+def quote_guard(inp: dict) -> Result:
+    if inp.get("tool_name") != "Bash":
+        return PASS
+    cmd = str((inp.get("tool_input") or {}).get("command") or "")
+    if not cmd or not QUOTE_TOOLS.search(cmd):
+        return PASS
+    hit = unquoted_backtick(cmd)
+    if not hit:
+        return PASS
+    return deny(inp, (
+        "✍ aimost quote-guard: a back-tick inside double quotes — the shell will run it as a command and put nothing in "
+        f"its place (`logins` and `code` vanish from the post). Here: …{hit}…\n"
+        "Pass the text as a heredoc with a quoted delimiter — back-ticks in it are just text:\n"
+        "  aimost post --thread <thread> \"$(cat <<'EOF'\n  … `code` …\n  EOF\n  )\"\n"
+        "or a file: `aimost post --file x.md`; a merge request description — `--description \"$(cat file)\"`."))
 
 
 # ── peer guard ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -590,9 +743,9 @@ def peer_guard(inp: dict) -> Result:
         if (kind == "human" and start >= int(since)) or turn_origin.owner_typed_since(tp, since):
             mark.unlink(missing_ok=True)
             return PASS
-    how = ("Need an action — ask the owner: `aimost confirm --via <via> --thread <thread> \"<what I do and at whose "
-           "request>\" \"<scope>\"`, after their button repeat the command with the prefix `AIMOST_CONFIRM=<id> `. Or tell "
-           "the colleague in the thread that the owner does this.")
+    how = ("Need an action — ask the owner: `aimost confirm --via <via> --thread <thread> --spec <action.json>` (fields "
+           "— `aimost confirm --help`), after their button repeat the command with the prefix `AIMOST_CONFIRM=<id> `. Or "
+           "tell the colleague in the thread that the owner does this.")
     pre = f"🛡 aimost peer-guard: the turn was started by a peer's chat post ({who or 'not the owner'}) — read-only"
     cwd = inp.get("cwd") or None
     if tool != "Bash":
@@ -605,6 +758,9 @@ def peer_guard(inp: dict) -> Result:
     cmd = str((inp.get("tool_input") or {}).get("command") or "")
     m = re.match(r"^AIMOST_CONFIRM=([0-9a-f]{8})\b", cmd)
     if m:
+        refused = merge_refused(name, m.group(1), cmd, inp)
+        if refused:
+            return deny(inp, f"{pre}; {refused}. {how}")
         why = confirm.spend(name, m.group(1))
         if why:
             return deny(inp, f"{pre}; confirmation {m.group(1)} is missing, used or older than 15 minutes. {how}")
@@ -616,7 +772,8 @@ def peer_guard(inp: dict) -> Result:
 
 
 HOOKS: Dict[str, Callable[[dict], Result]] = {
-    "inbox": inbox_hook, "ask-guard": ask_guard, "confirm-guard": confirm_guard, "peer-guard": peer_guard}
+    "inbox": inbox_hook, "ask-guard": ask_guard, "confirm-guard": confirm_guard, "peer-guard": peer_guard,
+    "quote-guard": quote_guard}
 
 
 def run(name: str, raw: str) -> Result:

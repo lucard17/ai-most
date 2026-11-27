@@ -36,7 +36,7 @@ class Manifest(IsolatedTest):
                     got.add((event, g.get("matcher", ""), m.group(1)))
         self.assertEqual(got, {("PostToolUse", "*", "inbox"), ("PostToolUse", "Bash", "gitlab"), ("Stop", "", "inbox"),
                                ("PreToolUse", "AskUserQuestion", "ask-guard"),
-                               ("PreToolUse", "Bash", "confirm-guard"),
+                               ("PreToolUse", "Bash", "confirm-guard"), ("PreToolUse", "Bash", "quote-guard"),
                                ("PreToolUse", "Bash|Edit|Write|NotebookEdit", "peer-guard")})
 
     def test_setup_command(self):

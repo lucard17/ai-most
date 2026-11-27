@@ -13,6 +13,9 @@
 
 Text: a ``.md`` file without text is sent as the post's text (long — in parts into the thread), as an attachment only
 with ``--attach``. Two or more questions as text are refused (code 4) — ask with buttons; a quote or a log — ``--plain``.
+A wall of text is refused (code 11): the first line over 200 characters, a paragraph or a line over 350, or over 500 without
+a field, a list or a heading — the point first, fields in bold each on its own line, lists as lists (``--plain``, a ``.md``
+document and a pin are not checked).
 A question in a channel needs ``--to`` (code 2); buttons are accepted only from the addressees, who must be people.
 Unknown logins — code 6, mentioned people not in the channel — code 7 (``--invite`` adds them), the bot not in the
 channel — code 8. Not admitted, no bot, someone else's post — code 3.

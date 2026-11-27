@@ -1,11 +1,12 @@
 #!/bin/sh
-# Hook entry for Claude Code (plugin hooks/hooks.json) and Codex: `aimost-hook inbox|ask-guard|confirm-guard|peer-guard`,
-# and `aimost-hook gitlab` (PostToolUse Bash: an MR the session created is linked to it — built-in GitLab plugin).
+# Hook entry for Claude Code (plugin hooks/hooks.json) and Codex:
+# `aimost-hook inbox|ask-guard|confirm-guard|peer-guard|quote-guard`, and `aimost-hook gitlab` (PostToolUse Bash: an MR
+# the session created is linked to it — built-in GitLab plugin).
 # Where the bridge is not installed it exits at once — no Python start, no output, nothing written (delivery spec:
 # hooks stay silent where there is no chat), so the plugin may be enabled for a whole team.
 state=${AIMOST_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/aimost}
 case "$1" in
-  inbox|ask-guard|gitlab) [ -d "${AIMOST_INBOX_DIR:-$state/inbox}" ] || exit 0 ;;
+  inbox|ask-guard|quote-guard|gitlab) [ -d "${AIMOST_INBOX_DIR:-$state/inbox}" ] || exit 0 ;;
   confirm-guard|peer-guard) [ -d "${AIMOST_MARKS_DIR:-$state/marks}" ] || exit 0 ;;
 esac
 command -v "${AIMOST_PYTHON:-python3}" >/dev/null 2>&1 || exit 0

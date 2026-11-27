@@ -4,7 +4,8 @@
   activity (approvals, people's notes, a failed pipeline, merged/closed) arrives in the session's inbox
   (``aimost gitlab once`` from a timer);
 * ``text_check`` — ``repo!N`` in outgoing text becomes a link with the MR title; a bare ``!N`` is refused (code 20);
-* a ``who`` directory — GitLab users for ``aimost who``.
+* a ``who`` directory — GitLab users for ``aimost who``;
+* merge request cards in confirmation posts (title, state, CI on the head commit).
 
 Everything goes through the ``glab`` CLI (``AIMOST_GLAB_BIN``) with the account of whoever runs it. Without ``glab``
 the plugin stays silent. Projects: ``repo!N`` is resolved in the connection's ``GITLAB_GROUP`` (``AIMOST_GITLAB_GROUP``).
@@ -40,8 +41,9 @@ WantedBy=timers.target
 
 
 def register(reg) -> None:
-    from . import glab, mrlinks, who
+    from . import cards, glab, mrlinks, who
     reg.text_check(mrlinks.check)
+    reg.confirm_card(cards.card)
     reg.who_source(who.search)
     if glab.available():                 # no glab — no timer either
         reg.service("aimost-gitlab.service", SERVICE)
