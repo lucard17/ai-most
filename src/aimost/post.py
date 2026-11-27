@@ -27,7 +27,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import askstore, connections, inbox, mattermost, paths, questions, textcheck, plugins
+from . import askstore, connections, inbox, mattermost, paths, questions, textcheck
 from .names import P
 
 
@@ -331,8 +331,6 @@ class Poster:
         """A question with buttons; its answer comes as an ``answer`` event (or to the answer sink ``sink``, with ``ref`` —
         the question's id on the sink's side)."""
         spec = questions.check(questions.norm_rec(spec))
-        if sink and plugins.sink(self.conn, sink) is None:
-            raise PostError(f"--sink {sink!r}: no such answer sink on connection {self.conn['NAME']} (`aimost plugins`)")
         if ref and (not sink or len(ref) > 200 or any(c.isspace() for c in ref)):
             raise PostError(f"--ref {ref!r}: one word, with --sink")
         if ttl is not None and not ttl > 0:

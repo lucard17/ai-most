@@ -328,6 +328,11 @@ class Asks(World):
         self.assertNotIn(qid, self.ok("--open-asks"))
         self.assertEqual(askstore.asks("deployer")[qid]["state"], "answered")
 
+    def test_unknown_sink_refused_on_the_command_line(self):
+        r = self.run_post("--ask", "Approve?", "yes", "no", "--sink", "nope")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("no such answer sink", r.stderr)
+
     def test_sink_question_through_the_api(self):
         lines = post.Poster("deployer").ask({"parts": [{"title": "Approve?", "options": ["yes", "no"]}]},
                                              sink="tracker")
