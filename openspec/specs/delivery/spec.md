@@ -198,7 +198,7 @@ write into the working tree.
 #### Scenario: a colleague without the bridge
 - **WHEN** the bridge is not installed, and any tool is called
 - **THEN** hooks print nothing and create nothing
-Test: `tests/test_hooks.py` (NoChat)
+Test: `tests/test_hooks.py` (NoChat), `tests/test_plugin.py` (Wrapper: no Python start without the bridge)
 
 ### Requirement: Codex uses the same inboxes
 For Codex (hook input with `turn_id`) the role name SHALL come from `LMOST_ROLE`, and the inbox SHALL be handed over at

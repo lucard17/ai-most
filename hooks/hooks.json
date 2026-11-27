@@ -1,0 +1,16 @@
+{
+  "description": "l-most: inbox delivery mid-turn and at the end of the turn; guards for chat-started turns. Silent where the bridge is not set up.",
+  "hooks": {
+    "PostToolUse": [
+      {"matcher": "*", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook inbox"}]}
+    ],
+    "Stop": [
+      {"hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook inbox"}]}
+    ],
+    "PreToolUse": [
+      {"matcher": "AskUserQuestion", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook ask-guard"}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook confirm-guard"}]},
+      {"matcher": "Bash|Edit|Write", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook peer-guard"}]}
+    ]
+  }
+}

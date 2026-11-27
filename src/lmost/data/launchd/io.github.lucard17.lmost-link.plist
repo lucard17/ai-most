@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>io.github.lucard17.lmost-link</string>
+  <key>ProgramArguments</key>
+  <array><string>@PYTHON@</string><string>-m</string><string>lmost</string><string>link</string><string>serve</string></array>
+  <key>EnvironmentVariables</key>
+  <dict><key>PATH</key><string>@PATH@</string><key>PYTHONPATH</key><string>@PYTHONPATH@</string></dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ThrottleInterval</key><integer>15</integer>
+  <key>StandardErrorPath</key><string>@LOG@/lmost-link.log</string>
+</dict>
+</plist>

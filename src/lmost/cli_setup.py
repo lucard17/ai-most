@@ -1,12 +1,17 @@
 """``lmost setup`` — prepare this machine and check the connections.
 
-  lmost setup           config and state directories (0700), then the check
-  lmost setup --check   per connection: URL and OWNER set, at least one bot, every bot token answers (/users/me),
-                        OWNER exists on the server. Exit 0 — all fine, 1 — something to fix (listed)
+  lmost setup                 config and state directories (0700), config templates (never over yours), background
+                              services (systemd user units on Linux, launchd agents on macOS) — started once a bot
+                              token exists; then the check
+  lmost setup --check         per connection: URL and OWNER set, at least one bot, every bot token answers
+                              (/users/me), OWNER exists on the server; the services are active.
+                              Exit 0 — all fine, 1 — something to fix (listed)
+  --no-services               neither install nor check services (run `lmost link serve` and `lmost dispatch serve`
+                              yourself)
 
 Connections and bot tokens are written by hand (``<config>/connections/<name>.env``, ``<config>/bots/<name>/<role>``)
-or by ``lmost bot add``; values come from the chat admin and never go into git. Background services (bridge, dispatcher)
-are installed by the Claude Code plugin.
+or by ``lmost bot add``; values come from the chat admin and never go into git. The Claude Code plugin registers the
+hooks; this command installs everything else. Service manager override: ``LMOST_SERVICE_MANAGER=systemd|launchd|none``.
 """
 
 from __future__ import annotations
@@ -14,7 +19,7 @@ from __future__ import annotations
 import sys
 from typing import List
 
-from . import connections, mattermost, paths
+from . import connections, install, mattermost, paths
 
 
 def check(out=print) -> int:
@@ -54,17 +59,33 @@ def check(out=print) -> int:
 
 
 def main(argv: List[str]) -> int:
-    if any(a not in ("--check",) for a in argv):
+    if any(a in ("-h", "--help") for a in argv):
         print(__doc__)
-        return 0 if argv and argv[0] in ("-h", "--help") else 2
+        return 0
+    if any(a not in ("--check", "--no-services") for a in argv):
+        print(__doc__)
+        return 2
+    manager = install.service_manager("--no-services" in argv)
     if "--check" not in argv:
+        if sys.version_info < (3, 8):
+            print("lmost setup: needs python3 >= 3.8", file=sys.stderr)
+            return 2
         for d in (paths.config_dir(), paths.config_dir() / "connections", paths.config_dir() / "bots",
                   paths.state_dir(), paths.inbox_dir()):
             paths.private_dir(d)
         print(f"+ {paths.config_dir()} and {paths.state_dir()} (0700)")
+        install.copy_templates()
+        if manager == "systemd":
+            install.install_systemd(start=install.has_bots())
+        elif manager == "launchd":
+            install.install_launchd()
+        else:
+            print("! no services installed: run `lmost link serve` and `lmost dispatch serve` yourself")
     print("check:")
-    return check()
-
+    bad = check()
+    if manager == "systemd":
+        bad |= install.units_check()
+    return bad
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))
