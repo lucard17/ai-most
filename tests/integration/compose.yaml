@@ -39,6 +39,26 @@ services:
       test: ["CMD", "/mattermost/bin/mmctl", "--local", "system", "status"]   # the image has no shell or curl
       interval: 3s
       retries: 60
+  # The edge (lmost edge serve) from this checkout's src, as Mattermost sees it: http://edge:8767 (the name is in
+  # AllowedUntrustedInternalConnections above). Started by edge-up.sh once the world exists (profile "edge"), so that
+  # starting or restarting it never touches the Mattermost data. Re-executes itself when src changes.
+  edge:
+    profiles: [edge]
+    image: python:3.12-alpine
+    mem_limit: 128m
+    command: ["python", "-u", "-m", "lmost", "edge", "serve"]
+    volumes: ["../../src:/src:ro"]
+    tmpfs: [/edge-data]
+    ports: ["127.0.0.1:${LMOST_IT_EDGE_PORT:-8068}:8767"]
+    env_file: [{path: edge.env, required: false}]
+    environment:
+      PYTHONPATH: /src
+      PYTHONDONTWRITEBYTECODE: "1"
+      EDGE_MM_URL: http://app:8065
+      EDGE_LISTEN: 0.0.0.0:8767
+      EDGE_PUBLIC: edge:8767
+      EDGE_KEYS_FILE: /edge-data/edge-keys.json
+      EDGE_UNFOLLOW_EVERY_S: "0"
 networks:
   default:
     # Explicit small subnet: hosts with many Docker networks run out of default address pools.
