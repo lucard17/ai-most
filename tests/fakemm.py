@@ -9,7 +9,10 @@ from typing import Dict, List, Optional
 
 def _err(path: str, code: int) -> urllib.error.HTTPError:
     e = urllib.error.HTTPError(path, code, "fake", {}, None)
-    e.close()                    # nothing to read; closed now so a caught error leaves no open buffer behind
+    try:
+        e.close()                # nothing to read; closed now so a caught error leaves no open buffer behind
+    except KeyError:             # Python < 3.9: an HTTPError without a body has nothing to close
+        pass
     return e
 
 
