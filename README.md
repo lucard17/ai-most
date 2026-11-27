@@ -10,8 +10,35 @@ in the same chat.
   by a peer is read-only;
 - questions with buttons, confirmation ✅/❌ before dangerous actions, several chat servers, GitLab MR events.
 
-**Status: porting, not released.** The working version runs privately; it is being ported here. See
-[docs/decisions.md](docs/decisions.md) and [docs/port-map.md](docs/port-map.md).
+**Status: pre-release (0.0.1).** Ported from a version that runs daily in a private setup; every module is tested,
+also against a real disposable Mattermost. Behaviour is specified in [openspec/specs](openspec/specs); why it is built
+this way — [docs/decisions.md](docs/decisions.md).
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    subgraph server[next to Mattermost]
+        MM[Mattermost] -- buttons, dialogs, slash commands --> EDGE[aimost edge]
+        EDGE -- marks answers in post props --> MM
+    end
+    subgraph machine[each owner's machine]
+        LINK[aimost link] -- events --> INBOX[(inboxes)]
+        INBOX -- hooks: mid-turn / end of turn --> CC[Claude Code / Codex sessions]
+        DISPATCH[aimost dispatch] -- wakes idle sessions --> CC
+        CC -- aimost post / ask / confirm --> MM
+    end
+    LINK -- websocket + REST, outbound only --> MM
+```
+
+- **edge** — a small HTTP server in the chat server's compose: the only thing Mattermost calls. It records button
+  presses and dialog answers in the post itself and answers slash commands; it holds no owner's secrets.
+- **link** — the bridge on the owner's machine: one bot per role, routing (DMs, mentions, threads, channels a role
+  owns), receipts 📬 👀 ⚠️, the loop guard, "Waiting for you".
+- **hooks** — deliver inbox events into a running session; guards stop a turn started by a peer from changing anything
+  and ask for ✅ before dangerous commands.
+- **plugins** — GitLab merge requests (built-in), `/health` (optional), your own through entry points or
+  `~/.config/aimost/plugins/`.
 
 ## Quick start
 
@@ -47,5 +74,15 @@ edge's environment, and set `AIMOST_PLUGINS=health` there and where you run `aim
 
 **Coming from the `chat-*` tools?** `aimost migrate` shows what it would import from `~/.config/chat` and
 `~/.local/state/chat-*`; `aimost migrate --apply` copies it (the old files stay as they are).
+
+## Development
+
+No dependencies; Python ≥ 3.8.
+
+    python3 -m unittest discover -s tests -t tests       # everything; tests needing Mattermost skip without it
+    tests/integration/up.sh                              # a disposable Mattermost + edge on 127.0.0.1 (Docker, tmpfs)
+    tests/integration/down.sh                            # gone, data included
+
+A change of behaviour starts in the spec (`openspec/specs/<area>/spec.md`, each scenario names its test).
 
 License: MIT.
