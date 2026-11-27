@@ -31,15 +31,15 @@ that mentions another person MUST NOT be given to the channel owner role — tha
 - **THEN** the post is in the channel owner role's inbox
 Oracle: `chat-link.test.sh`
 
-### Requirement: In someone else's thread — only the people who called the role
+### Requirement: In someone else's thread — only posts that mention the role
 In its own thread and in threads of a channel it owns, a role SHALL get every post; in someone else's thread where the
-role has posted, only posts of people who called the role in that thread. A role MUST NOT get every post of every thread
-it once posted in. Manual override: `lmost inbox mute|follow <role> <thread>`.
+role has posted, only posts that mention it (`@role`) — having called the role earlier in that thread is not enough. A role
+MUST NOT get every post of every thread it once posted in. Manual override: `lmost inbox mute|follow <role> <thread>`.
 
 #### Scenario: people talk in a foreign thread
 - **WHEN** the role once answered in someone else's thread, and other people keep talking there
 - **THEN** their posts do not reach the role's inbox
-Oracle: `chat-link.test.sh`
+Test: `tests/test_link.py` (Rules.test_own_thread_in_full_foreign_only_by_mention)
 
 ### Requirement: "Not delivered" only where an agent was expected
 ⚠️ on an owner's post SHALL be set only when the post reached no inbox where an agent was expected (direct message, owned
