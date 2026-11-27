@@ -12,20 +12,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.8", "3.12", "3.13"]
+        python: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - name: unit tests (no Mattermost)
+        run: AIMOST_IT=0 python -m unittest discover -s tests -t tests -v
+  unit-oldest:
+    # the floor (requires-python >= 3.8): runners no longer ship it, the official image does
+    name: unit (python 3.8)
+    runs-on: ubuntu-latest
+    container: python:3.8-slim
+    steps:
+      - uses: actions/checkout@v5
       - name: unit tests (no Mattermost)
         run: AIMOST_IT=0 python -m unittest discover -s tests -t tests -v
   integration:
     name: integration (disposable Mattermost)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: start Mattermost
