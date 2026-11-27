@@ -15,7 +15,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `chat-activity` | 313 | core | typing, bot status, progress post |
 | `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional |
 | `chat-dispatch` | 217 | core | wake dispatcher, bash → Python; terminal tab launcher hint → configurable |
-| `chat-inbox` | 134 | core | inbox + cursor, bash → Python, `fcntl` locking |
+| `chat-inbox` | 134 | core ✅ | **ported** → `src/lmost/inbox.py`, `lmost inbox`; 27 tests. Receipts and activity on ack — via `ACK_LISTENERS`, wired when those modules land |
 | `chat.d/chatws.py` | 133 | core | Mattermost websocket watcher (transport) |
 | `chat-who` | 125 | core, split | chat login lookup; GitLab side → plugin |
 | `chat-agents` | 100 | core | agent directory from bot profiles |

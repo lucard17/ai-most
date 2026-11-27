@@ -98,6 +98,26 @@ read-only.
 - **THEN** it is in the session's context after the next tool call
 Oracle: `chat-inbox.test.sh`
 
+### Requirement: Session mode — chat or cli
+A session's mode SHALL be `chat` (the inbox wakes it and delivers mid-turn, questions go to chat) or `cli` (cut off from the
+inbox: never woken, events wait for `/inbox` typed by the owner, questions in the terminal). An explicit label
+(`lmost inbox mode <role> chat|cli`) SHALL win; without a label — `chat` if the role is in `WAKE_LIST` or has its own bot,
+otherwise `cli`. A role, background or Codex session SHALL label itself `chat` on its first event if unlabelled
+(`--if-unset`); a launch MUST NOT override an explicit label. In `cli` mode the dispatcher MUST NOT wake the session, the
+delivery hook MUST NOT deliver on PostToolUse nor block Stop and SHALL show the owner "📬 N new in inbox — /inbox";
+`lmost inbox put` SHALL store the event and tell the sender the session answers on `/inbox`; the bridge SHALL react ⌨️
+instead of 📬. The peer guard MUST act in `cli` as in `chat`.
+
+#### Scenario: a session started by hand
+- **WHEN** the owner starts `claude`, names the session `foo`, it has no bot and is not in `WAKE_LIST`
+- **THEN** `lmost inbox mode foo` prints `cli (default)`; no wake-ups
+Test: `tests/test_inbox.py` (SessionMode)
+
+#### Scenario: another session writes to a cli session
+- **WHEN** a session calls `lmost inbox put foo --from hash "…"`, and `foo` is in `cli`
+- **THEN** the event is stored, the sender sees "foo is in CLI mode — it answers when its owner runs /inbox", exit 0
+Test: `tests/test_inbox.py` (SessionMode)
+
 ### Requirement: Waking an idle or closed session
 The dispatcher SHALL wake a live idle session with an inter-session message "N in inbox — /inbox"; leave a busy one alone
 if its transcript changed recently, otherwise wake it as idle; resume a closed role listed in `WAKE_LIST` with

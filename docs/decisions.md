@@ -94,6 +94,16 @@ from `~/.config/chat/` to `~/.config/lmost/`, state from `~/.local/state/chat-*`
 upstream values; plugin checks use 20–39 (the MR-link check moves from 9 to 20). `lmost migrate` imports an upstream
 config and state.
 
+## D10. Tests on stdlib unittest; session mode is core — 2026-11-27
+
+Tests use `unittest` (pytest runs them unchanged): no dev dependency needed to run the suite on a bare Python. Run:
+`python3 -m unittest discover -s tests -t tests`. Every module test is checked against a mutation (break the code, the test
+must fail) before the module counts as ported.
+
+The upstream "session mode" (`chat|cli`, in flight upstream as part of a larger change at the freeze point, already in the
+inbox code) is generic and goes into the core delivery spec; the rest of that upstream change (folder pins, compaction
+modes) is workspace-specific and stays out.
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.
