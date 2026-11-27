@@ -1,0 +1,118 @@
+{
+  "example": {
+    "staging": {
+      "web": {
+        "url": "",
+        "path": "/app",
+        "rule": "http",
+        "redirect": {
+          "status": 307,
+          "prefix": "/app/"
+        }
+      },
+      "api": {
+        "url": "",
+        "path": "/health",
+        "rule": "status",
+        "details": [
+          {
+            "field": "queue.depth",
+            "label": "queue",
+            "count": true
+          }
+        ]
+      },
+      "worker": {
+        "url": "",
+        "path": "/health",
+        "rule": "role",
+        "mode": {
+          "field": "runMode",
+          "expected": "off",
+          "allowed": [
+            "live",
+            "off"
+          ]
+        },
+        "reasons": {
+          "worker is starting": "starting up",
+          "nothing to process": "idle, nothing to do"
+        },
+        "details": [
+          {
+            "field": "jobs",
+            "label": "jobs",
+            "count": true
+          },
+          {
+            "field": "source",
+            "label": "source",
+            "allowed": [
+              "primary",
+              "replica"
+            ]
+          }
+        ]
+      },
+      "cache": null,
+      "queue": null
+    },
+    "prod": {
+      "web": {
+        "url": "",
+        "path": "/app",
+        "rule": "http",
+        "redirect": {
+          "status": 307,
+          "prefix": "/app/"
+        }
+      },
+      "api": {
+        "url": "",
+        "path": "/health",
+        "rule": "status",
+        "details": [
+          {
+            "field": "queue.depth",
+            "label": "queue",
+            "count": true
+          }
+        ]
+      },
+      "worker": {
+        "url": "",
+        "path": "/health",
+        "rule": "role",
+        "mode": {
+          "field": "runMode",
+          "expected": "live",
+          "allowed": [
+            "live",
+            "off"
+          ]
+        },
+        "reasons": {
+          "worker is starting": "starting up",
+          "nothing to process": "idle, nothing to do"
+        },
+        "details": [
+          {
+            "field": "jobs",
+            "label": "jobs",
+            "count": true
+          },
+          {
+            "field": "source",
+            "label": "source",
+            "allowed": [
+              "primary",
+              "replica"
+            ]
+          }
+        ]
+      },
+      "cache": null,
+      "queue": null
+    }
+  }
+}

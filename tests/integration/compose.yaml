@@ -47,7 +47,7 @@ services:
     image: python:3.12-alpine
     mem_limit: 128m
     command: ["python", "-u", "-m", "aimost", "edge", "serve"]
-    volumes: ["../../src:/src:ro"]
+    volumes: ["../../src:/src:ro", "./health:/health:ro"]     # health/: the /health targets the tests write
     tmpfs: [/edge-data]
     ports: ["127.0.0.1:${AIMOST_IT_EDGE_PORT:-8068}:8767"]
     env_file: [{path: edge.env, required: false}]
@@ -59,6 +59,8 @@ services:
       EDGE_PUBLIC: edge:8767
       EDGE_KEYS_FILE: /edge-data/edge-keys.json
       EDGE_UNFOLLOW_EVERY_S: "0"
+      AIMOST_PLUGINS: health
+      EDGE_HEALTH_TARGETS: /health/targets.json
 networks:
   default:
     # Explicit small subnet: hosts with many Docker networks run out of default address pools.

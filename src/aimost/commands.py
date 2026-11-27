@@ -53,6 +53,7 @@ class Call:
     caller: dict = field(default_factory=dict)
     role: str = "person"
     bot: Optional[dict] = None           # the target bot user, when the command names a role
+    form: Dict[str, str] = field(default_factory=dict)   # the form Mattermost sent (``response_url`` for a delayed reply)
 
 
 @dataclass
@@ -236,7 +237,8 @@ def run(edge: "Edge", name: str, form: Dict[str, str]) -> str:
         return f"`{label}` is not open to you (you are {role} here)."
     call = Call(edge=edge, name=name, sub=cmd.sub, args=args, user_id=caller["id"],
                 user_name=caller.get("username") or form.get("user_name", ""), team_id=form.get("team_id", ""),
-                channel_id=form.get("channel_id", ""), root_id=form.get("root_id", ""), caller=caller, role=role, bot=bot)
+                channel_id=form.get("channel_id", ""), root_id=form.get("root_id", ""), caller=caller, role=role, bot=bot,
+                form=dict(form))
     if cmd.kind == "edge":
         return cmd.handler(call)
     return send_command_post(call, cmd)

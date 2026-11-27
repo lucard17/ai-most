@@ -2,7 +2,8 @@
 
 Where plugins come from, in this order:
 
-1. built-ins shipped with ai-most (``BUILTIN``) — enabled unless the connection lists them in ``PLUGINS_OFF``;
+1. built-ins shipped with ai-most (``BUILTIN``) — enabled unless the connection lists them in ``PLUGINS_OFF``; optional
+   built-ins (``OPTIONAL``) ship too but are off until listed, like an installed plugin;
 2. Python entry points, group ``aimost.plugins`` — enabled only where the connection lists them in ``PLUGINS``;
 3. files ``<config>/plugins/<name>.py`` — the same as entry points.
 
@@ -13,7 +14,8 @@ the error type, and never stops the caller.
 
 Switching is per connection: a callback that receives a connection (text checks, admission, bot resolvers, answer
 sinks) runs only where its plugin is enabled; one that does not (read rules, ``who`` sources, slash commands) is installed
-when the plugin is enabled on at least one connection (a built-in — also when there are no connections at all).
+when the plugin is enabled on at least one connection (a built-in — also when there are no connections at all). A process
+without connections — the edge next to Mattermost — enables plugins by name in ``AIMOST_PLUGINS``.
 
 Authority (extensions spec): a ``source`` writes events through :meth:`Registrar.inbox`, which sets the sender role
 itself — ``peer``, or ``owner`` when the connection lists the plugin in ``SOURCES_OWNER``. A plugin cannot raise it.
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -32,6 +35,7 @@ from .connections import Connection, _split
 
 GROUP = "aimost.plugins"
 BUILTIN = {"aimost_gitlab": "gitlab"}   # module → plugin name
+OPTIONAL = {"aimost_health": "health"}  # shipped, off unless listed (PLUGINS / AIMOST_PLUGINS)
 KINDS = ("transport", "source", "delivery", "command", "answer_sink", "text_check", "admission")
 
 # answer sinks: key → (plugin name, sink). A sink is an object with ``answer(conn, q, part, answer, title) -> str`` (the
@@ -45,10 +49,11 @@ class SinkRefused(Exception):
 
 
 class Plugin:
-    def __init__(self, name: str, source: str, builtin: bool):
+    def __init__(self, name: str, source: str, builtin: bool, optional: bool = False):
         self.name = name
         self.source = source
         self.builtin = builtin
+        self.optional = optional
         self.version = ""
         self.kinds: tuple = ()
         self.state = "loaded"
@@ -65,19 +70,22 @@ _loaded = False
 
 # ── switching ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 def enabled(name: str, conn: Optional[Connection]) -> bool:
-    """Is the plugin on for this connection; ``conn`` None (a session with no chat connection) — built-ins only."""
+    """Is the plugin on for this connection; ``conn`` None (no chat connection: a session outside the chat, the edge) —
+    built-ins that are on by default, and the plugins named in ``AIMOST_PLUGINS``."""
     p = _plugins.get(name)
-    builtin = p.builtin if p else name in BUILTIN.values()
+    default_on = (p.builtin and not p.optional) if p else name in BUILTIN.values()
     if conn is None:
-        return builtin
+        return default_on or name in _split(os.environ.get("AIMOST_PLUGINS", ""))
     if name in _split(conn.get("PLUGINS_OFF", "")):
         return False
-    return builtin or name in _split(conn.get("PLUGINS", ""))
+    return default_on or name in _split(conn.get("PLUGINS", ""))
 
 
 def enabled_anywhere(name: str) -> bool:
     from . import connections
     conns = list(connections.connections().values())
+    if name in _split(os.environ.get("AIMOST_PLUGINS", "")):
+        return True
     return enabled(name, None) if not conns else any(enabled(name, c) for c in conns)
 
 
@@ -246,6 +254,8 @@ def load(force: bool = False) -> List[Plugin]:
     _loaded = True
     for mod, name in BUILTIN.items():
         _install(Plugin(name, "built-in", True), lambda m=mod: importlib.import_module(m))
+    for mod, name in OPTIONAL.items():
+        _install(Plugin(name, "built-in (optional)", True, optional=True), lambda m=mod: importlib.import_module(m))
     for ep in _entry_points():
         dist = getattr(getattr(ep, "dist", None), "name", "") or "?"
         _install(Plugin(ep.name, f"entry point ({dist})", False), ep.load)

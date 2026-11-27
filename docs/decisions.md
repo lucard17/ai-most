@@ -144,6 +144,25 @@ Routing follows the upstream oracle where the spec text differed: in someone els
 without an @ is not delivered. `CHANNEL_OWNERS` defaults to `top <channel> -> role`. The workspace-specific listener
 registry was not ported.
 
+## D15. `/health` is an optional built-in plugin; product knowledge lives in the targets file — 2026-11-27
+
+The only upstream change after the D8 freeze point is an on-demand `/health` in the edge, written for one product: its
+service names, the failure reasons its workers report and the detail fields worth showing were in the code. Ported as
+`aimost_health` (health spec), with those three moved into the targets file (`reasons`, `details`, the `role` check by the
+service's name), so any team describes its own services without code. Kept as upstream: probes only from the file,
+redirects not followed, delayed answer only to the edge's own Mattermost, one poll per contour per 10 s, "no link to
+contour", a deadline watcher, audit lines without addresses.
+
+Different from upstream:
+- it is a plugin of a new sort — **optional built-in**: shipped, off until listed (`PLUGINS=health` on a connection,
+  `AIMOST_PLUGINS=health` for a process without connections, such as the edge). A check of your own services is not
+  something every installation wants to see in its command list;
+- the caller is resolved by the core like any edge command (one `GET /users/<id>` before the handler) instead of a
+  separate authorization thread; only guests are refused on top of that;
+- the edge gained `after`: work a handler leaves for after its immediate answer is sent (`Edge.serve_post`). The polls
+  start only once "⏳ checking…" is out, and not at all when it could not be sent;
+- the edge watches the code of the built-in plugin packages too (`aimost_*`), not only `aimost`.
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

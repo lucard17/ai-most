@@ -40,6 +40,11 @@ Hooks stay silent on machines where the bridge is not set up, so a team may enab
 `UserPromptSubmit` and `Stop`, and `bin/aimost-hook confirm-guard` / `peer-guard` for `PreToolUse`, in Codex's hooks
 configuration. A wake command for an idle Codex session goes into `~/.config/aimost/wake.list` as `<role> cmd <command>`.
 
+**`/health`** (optional): the edge can answer "are our services up?" per environment. Copy
+`src/aimost/data/config/health-targets.example.json`, fill in the addresses, point `EDGE_HEALTH_TARGETS` at it in the
+edge's environment, and set `AIMOST_PLUGINS=health` there and where you run `aimost commands register`. See
+`openspec/specs/health/spec.md`.
+
 **Coming from the `chat-*` tools?** `aimost migrate` shows what it would import from `~/.config/chat` and
 `~/.local/state/chat-*`; `aimost migrate --apply` copies it (the old files stay as they are).
 

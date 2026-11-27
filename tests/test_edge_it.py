@@ -100,7 +100,7 @@ class RealEdge(unittest.TestCase):
 
     def register(self):
         env = dict(os.environ, PYTHONPATH=helpers.SRC, AIMOST_MM_TOKEN=self.owner, AIMOST_MM_URL=IT["AIMOST_IT_URL"],
-                   EDGE_SLASH_SECRET=self.slash_secret, EDGE_PUBLIC=self.public)
+                   EDGE_SLASH_SECRET=self.slash_secret, EDGE_PUBLIC=self.public, AIMOST_PLUGINS="health")
         r = subprocess.run([sys.executable, "-m", "aimost", "commands", "register", "--team", IT["AIMOST_IT_TEAM"], "--create"],
                            capture_output=True, text=True, env=env)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -113,7 +113,7 @@ class RealEdge(unittest.TestCase):
         self.register()
         self.register()                                       # idempotent: updates, no duplicates
         cmds = self.call("GET", f"/commands?team_id={IT['AIMOST_IT_TEAM_ID']}&custom_only=true", token=self.owner)
-        self.assertEqual(sorted(c["trigger"] for c in cmds if not c.get("delete_at")), ["agent", "bot-token", "unfollow"])
+        self.assertEqual(sorted(c["trigger"] for c in cmds if not c.get("delete_at")), ["agent", "bot-token", "health", "unfollow"])
         heartbeat.write(self.conn, self.bot, "deployer", "running", unread=3, last_turn=int(time.time() * 1000))
         edge_view = heartbeat.fetch(lambda m, p, b=None: self.call(m, p, b, token=self.owner), self.bot_id)
         self.assertEqual(edge_view["unread"], 3, "a bot writes its own heartbeat, an admin reads it")
@@ -124,6 +124,45 @@ class RealEdge(unittest.TestCase):
         self.assertIn("s old_", r["text"])
         r = self.execute("/agent who", self.colleague)
         self.assertIn("not open to you", r.get("text", ""), r)
+
+    def test_health_through_mattermost(self):
+        """/health end to end: Mattermost calls the edge, the edge probes, the delayed answer comes back through the
+        command's response_url as an ephemeral post the caller receives over the websocket."""
+        from aimost import ws
+        targets = {"stand": {"local": {"edge": {"url": "http://127.0.0.1:8767", "path": "/version", "rule": "http"},
+                                       "chat": {"url": "http://app:8065", "path": "/api/v4/system/ping", "rule": "status"},
+                                       "cache": None},
+                             "far": {"api": {"url": "http://app:9", "path": "/health", "rule": "status"}}}}
+        d = os.path.join(os.path.dirname(__file__), "integration", "health")
+        os.makedirs(d, exist_ok=True)
+        tmp = os.path.join(d, "targets.json.tmp")
+        with open(tmp, "w") as f:
+            json.dump(targets, f)
+        os.replace(tmp, os.path.join(d, "targets.json"))
+        self.register()
+        sock = ws.WS(IT["AIMOST_IT_URL"], self.colleague, timeout=1)
+        try:
+            r = self.execute("/health stand", self.colleague)
+            self.assertEqual(r.get("text"), "⏳ checking…", r)
+            text, deadline = None, time.time() + 10
+            while text is None and time.time() < deadline:
+                try:
+                    m = sock.recv()
+                except Exception:
+                    continue
+                ev = json.loads(m) if m else {}
+                if ev.get("event") == "ephemeral_message":
+                    post = json.loads(ev["data"]["post"])
+                    if post.get("channel_id") == self.channel and "STAND" in post.get("message", ""):
+                        text = post["message"]
+        finally:
+            sock.close()
+        self.assertIsNotNone(text, "no delayed answer over the websocket")
+        self.assertEqual(text.split("\n")[0], "🔴 STAND: 1/2 ok · 🔴 1 failed · ⚪ 1 no probe · far — no link to contour")
+        self.assertIn("| edge | 🟢 | — |", text)
+        self.assertIn("| chat | 🔴 | — |", text, "the ping says OK, not ok: the status rule is exact")
+        self.assertIn("| api | — | ❔ |", text)
+        self.assertNotIn("8065", text)
 
     def test_session_command_becomes_a_signed_post(self):
         self.register()

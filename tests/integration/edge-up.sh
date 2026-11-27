@@ -35,6 +35,7 @@ keep += [f"AIMOST_IT_EDGE_URL=http://127.0.0.1:{port}", "AIMOST_IT_EDGE_PUBLIC=e
 with open(path, "r+") as f:
     f.seek(0); f.write("\n".join(keep) + "\n"); f.truncate()
 PY
+mkdir -p "$here/health"        # the /health targets (tests write targets.json); before compose, or Docker makes it root's
 dc up -d --no-deps --force-recreate edge >/dev/null 2>&1
 for _ in $(seq 50); do curl -sf "http://127.0.0.1:${AIMOST_IT_EDGE_PORT:-8068}/version" >/dev/null && break; sleep 0.2; done
 curl -sf "http://127.0.0.1:${AIMOST_IT_EDGE_PORT:-8068}/version" | xargs -0 echo "edge up:"

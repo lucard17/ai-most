@@ -21,14 +21,15 @@ text rules — lives in plugins, so the core stays usable by anyone. One pattern
 ### Requirement: Plugins are discovered, listed and switched per connection
 The core SHALL load plugins from entry points and the local plugins directory; `aimost plugins` SHALL list them with kind,
 version and source. A plugin SHALL be enabled per connection (`PLUGINS=<name>[,<name>]`); built-ins are enabled unless
-listed in `PLUGINS_OFF`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
+listed in `PLUGINS_OFF`; optional built-ins (`health`) ship with the core but are off until listed, like an installed
+plugin. A process without connections (the edge) enables plugins by name in `AIMOST_PLUGINS`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
 stays registered. Callbacks that receive a connection run only where the plugin is enabled; slash commands, read rules
 and `who` sources are installed when the plugin is enabled on at least one connection.
 
 #### Scenario: a broken plugin
 - **WHEN** a plugin raises on import
 - **THEN** the bridge starts, `aimost plugins` shows it as failed with the error type
-Test: `tests/test_plugins.py` (Discovery)
+Test: `tests/test_plugins.py` (Discovery), `tests/test_health.py` (Switch)
 
 ### Requirement: Plugins do not bypass authority
 Plugins SHALL receive the sender role resolved by the core and MUST NOT be able to raise it. Events written by a `source`

@@ -9,3 +9,4 @@ dist/
 tests/integration/it.env
 tests/integration/edge.env
 .work/
+tests/integration/health/

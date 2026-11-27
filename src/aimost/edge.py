@@ -91,6 +91,33 @@ class Edge:
         self._owners: Dict[str, Tuple[Optional[str], float]] = {}
         self._edge_owner: Dict[str, str] = {}
         self._me: Optional[str] = None
+        # work a handler leaves for after its reply is sent (a slash command's delayed answer must not overtake the
+        # immediate one); the HTTP layer runs it, one request at a time
+        self.after: List[Callable[[], None]] = []
+
+    def serve_post(self, path: str, raw: bytes, send: Callable[[int, dict], None]) -> None:
+        """One POST: the answer, then the work its handler left for after it (``after``)."""
+        self.after = []
+        try:
+            code, obj = self.handle(path, raw)
+        except Exception as x:
+            self.log(f"{urllib.parse.urlsplit(path).path}: {type(x).__name__}")
+            code, obj = 500, {}
+            self.after = []
+        try:
+            send(code, obj)
+        except OSError:
+            self.after = []                      # the caller never got the immediate answer: no delayed one either
+            raise
+        self.run_after()
+
+    def run_after(self) -> None:
+        todo, self.after = self.after, []
+        for f in todo:
+            try:
+                f()
+            except Exception as x:
+                self.log(f"after reply: {type(x).__name__}")
 
     # ── plumbing
     def log(self, m: str) -> None:
@@ -453,20 +480,25 @@ class Edge:
 
 # ── HTTP layer, with re-exec on a code change: an edge container mounting the package would otherwise keep serving the code
 # it started with (presses ending in "integration error" after an upgrade). A file that does not compile is not run.
-def _code_stamp() -> Tuple:
+# Watched: this package and the built-in plugin packages next to it (``aimost_*``).
+def _code_files() -> List[Path]:
     pkg = Path(__file__).resolve().parent
+    return sorted(pkg.glob("*.py")) + sorted(pkg.parent.glob("aimost_*/*.py"))
+
+
+def _code_stamp() -> Tuple:
     out = []
-    for f in sorted(pkg.glob("*.py")):
+    for f in _code_files():
         try:
             st = f.stat()
-            out.append((f.name, st.st_mtime_ns, st.st_size))
+            out.append((str(f), st.st_mtime_ns, st.st_size))
         except OSError:
             pass
     return tuple(out)
 
 
 def _compiles() -> Optional[str]:
-    for f in sorted(Path(__file__).resolve().parent.glob("*.py")):
+    for f in _code_files():
         try:
             compile(f.read_text(encoding="utf-8"), str(f), "exec")
         except (SyntaxError, ValueError, OSError) as x:
@@ -486,13 +518,7 @@ def make_server(edge: Edge, reload_s: Optional[float] = None, argv: Optional[Lis
             self.reply(404, {})
 
         def do_POST(self):
-            raw = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
-            try:
-                code, obj = edge.handle(self.path, raw)
-            except Exception as x:
-                edge.log(f"{urllib.parse.urlsplit(self.path).path}: {type(x).__name__}")
-                code, obj = 500, {}
-            self.reply(code, obj)
+            edge.serve_post(self.path, self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)), self.reply)
 
         def reply(self, code: int, obj: dict) -> None:
             b = json.dumps(obj).encode()
