@@ -360,6 +360,8 @@ def session_name(session_id: str = "") -> Optional[str]:
 def _default_listeners() -> None:
     from . import activity  # a person's message read from the chat starts a chat turn ("typing…", progress, status)
     ACK_LISTENERS.append(activity.on_ack)
+    from . import receipts  # 👀 on the posts the session has read
+    ACK_LISTENERS.append(receipts.on_ack)
 
 
 _default_listeners()
