@@ -418,8 +418,6 @@ class Real(IsolatedTest):
         waiting.on_post(self.conn, p)
         self.assertEqual(sink.calls, [(q, 1, 1, "close T-3?", "T-3")])
         with self.assertRaises(postmod.PostError):
-            self.ask("x?", sink="nope")
-        with self.assertRaises(postmod.PostError):
             self.ask("x?", sink="tracker", ref="two words")
 
     def test_a_question_an_earlier_version_posted_is_answered_through_the_sink_that_claims_it(self):

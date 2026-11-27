@@ -30,7 +30,7 @@ import sys
 import urllib.error
 from typing import List
 
-from . import post, questions
+from . import plugins, post, questions
 
 VALUED = ("--via", "--channel", "--thread", "--file", "--edit", "--to", "--pin", "--cancel", "--ttl", "--conclude", "--sink",
           "--ref")
@@ -133,6 +133,9 @@ def main(argv: List[str]) -> int:
             elif opts.get("edit"):
                 out = p.edit(opts["edit"], a[0], plain="plain" in flags)
             elif is_ask:
+                if opts.get("sink") and plugins.sink(p.conn, opts["sink"]) is None:
+                    return die(f"--sink {opts['sink']!r}: no such answer sink on connection {p.conn['NAME']} "
+                               "(`aimost plugins`)")
                 out = p.ask(spec, to=opts.get("to", ""), invite="invite" in flags, ttl=ttl,
                             blocking="blocking" in flags, sink=opts.get("sink", ""), ref=opts.get("ref", ""), **where)
             else:
