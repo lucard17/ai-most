@@ -114,6 +114,13 @@ modes) is workspace-specific and stays out.
 - What only the real server proves: props replaced whole on patch, bot permissions, websocket events, and real button
   presses calling the edge (`POST /posts/<id>/actions/<action>` as a user).
 
+## D12. Bots are created over REST, not on the chat server — 2026-11-27
+
+Upstream `chat-bot-add` ran `mmctl --local` on the chat server over ssh. `lmost bot add` uses the REST API with a token of
+a user allowed to create bots (`LMOST_ADMIN_TOKEN` or `<config>/admin/<connection>`, 0600): no shell access to the
+server, works with any hosting. A bot for another person is assigned to them and no token is issued by the admin — they
+take one with `/bot-token` (commands spec).
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

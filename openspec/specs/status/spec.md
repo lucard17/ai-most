@@ -15,7 +15,7 @@ avatar. Progress posts MUST NOT appear in channel threads; turn reactions MUST N
 #### Scenario: a long turn from a direct message
 - **WHEN** the owner wrote in a direct message, and the turn lasts more than 20 seconds
 - **THEN** a progress post with the latest steps, at the end — the outcome
-Oracle: `chat-activity.test.sh`
+Test: `tests/test_activity.py`
 
 ### Requirement: A session waiting for a permission is visible to the owner
 A session stopped on a permission prompt SHALL be shown as a separate state ✋, and after 120 s — with one direct message
@@ -25,7 +25,7 @@ go to a shared channel.
 #### Scenario: the session stopped on a prompt
 - **WHEN** the session waits for a permission for more than 120 seconds
 - **THEN** the owner gets one direct message; the same wait is not reported again
-Oracle: `chat-activity.test.sh`
+Test: `tests/test_activity.py`
 
 ### Requirement: Bridge heartbeat
 The bridge SHALL write a heartbeat at least once a minute into a place the edge can read without the owner's machine: the
@@ -57,17 +57,19 @@ bot's token or through a webhook with a substituted name MUST NOT happen.
 #### Scenario: the role's bot is deactivated
 - **WHEN** `lmost bot add` for a role whose bot is deactivated
 - **THEN** the bot is enabled, the token is new and written to a file, not printed
-Oracle: `chat-bot-add.test.sh`
+Test: `tests/test_botadmin.py`
 
 ### Requirement: Bots for other people are created by a chat admin
-Bots and tokens for other people SHALL be created by a chat admin (`lmost bot add --owner <login>`, token into a 0600 file
-for personal handover, description required) without touching the admin's own connection. Self-service accounts, someone
-else's prefix on a colleague's bot, and turning a person's account into a bot (exit code 4) MUST NOT happen.
+Bots for other people SHALL be created by a chat admin (`lmost bot add --owner <login>`, description required): the bot is
+assigned to that person, no token is issued by the admin — the owner takes one with `/bot-token <bot>` (commands spec) —
+and the admin's own connection is untouched. An `--owner` that is a bot or does not exist (exit code 6), silently moving
+a bot owned by someone else (exit code 7), self-service accounts, and turning a person's account into a bot (exit code 4)
+MUST NOT happen.
 
 #### Scenario: a person's login instead of a bot name
 - **WHEN** the admin creates a bot with a name taken by a person's account
 - **THEN** refused, exit code 4
-Oracle: `chat-bot-add.test.sh`
+Test: `tests/test_botadmin.py`
 
 ### Requirement: The agent directory is built from bot profiles
 The agent directory SHALL be built from bot profile descriptions (deleted bots excluded) and published as a pinned post
@@ -76,4 +78,4 @@ edited in place; a hand-kept list of agents MUST NOT exist.
 #### Scenario: nothing changed
 - **WHEN** the directory is published, and no profile changed
 - **THEN** nothing is written
-Oracle: `chat-agents.test.sh`
+Test: `tests/test_agents.py`

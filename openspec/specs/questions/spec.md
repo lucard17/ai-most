@@ -16,12 +16,12 @@ owner.
 #### Scenario: a non-addressee presses
 - **WHEN** a question "ready to merge?" to an MR author with `--to`, and an outsider presses a button
 - **THEN** hint "your opinion — in the thread", the answer does not count
-Oracle: `chat-ask-to.test.sh`
+Test: `tests/test_questions.py` (Render — addressees in the button context); the edge's refusal and the bridge's count — Oracle: `chat-ask-to.test.sh`
 
 #### Scenario: a channel question without addressees
 - **WHEN** `--ask` in a channel without `--to`
 - **THEN** exit code 2, no post
-Oracle: `chat-post-edit.test.sh`
+Test: `tests/test_post.py` (Asks.test_channel_ask_needs_to_and_flags_after_ask)
 
 ### Requirement: Addressees are notified
 Addressees SHALL be mentioned in the first line, with the question text in the post body, not only in the attachment card;
@@ -31,7 +31,7 @@ the recommendation `rec` is an option number or its text.
 #### Scenario: a question to two people
 - **WHEN** `--ask` with two items and `--to` two people
 - **THEN** the first line mentions both, item titles are in the post body
-Oracle: `chat-post-args.test.sh`
+Test: `tests/test_post.py` (Args, Asks.test_channel_ask_needs_to_and_flags_after_ask), `tests/test_questions.py` (Render.test_mentions_first_line_and_titles_in_body, Spec)
 
 ### Requirement: A free-text answer — retell before acting
 An answer through "✍️ own answer" SHALL arrive as an event that requires, before acting, retelling it in the thread by its
@@ -51,7 +51,7 @@ people (a quote, a log) SHALL pass with `--plain`. The same rule SHALL apply to 
 #### Scenario: two questions as text
 - **WHEN** the post "Deploy? Or wait?"
 - **THEN** exit code 4, nothing is posted
-Oracle: `chat-post-edit.test.sh`
+Test: `tests/test_post.py` (Basics.test_two_questions_as_text, Channels.test_edit_own_only)
 
 ### Requirement: A stale question is cancelled
 A session SHALL cancel its question with `--cancel <ask-id|post_id> "<why>"`: the post is edited in place, buttons removed,
@@ -62,7 +62,7 @@ session's open questions.
 #### Scenario: the question lost its point
 - **WHEN** the session cancels its question with `--cancel` and a reason
 - **THEN** no buttons; a press on stale markup does not reach the inbox
-Oracle: `chat-post-cancel.test.sh`
+Test: `tests/test_post.py` (Asks.test_cancel_open_asks, Asks.test_answered_or_deleted_leaves_the_list), `tests/test_questions.py` (Misc.test_cancelled_patch_keeps_props); presses on stale markup and the ttl sweep — Oracle: `chat-post-cancel.test.sh`
 
 ### Requirement: Questions to the owner are pinned in "Waiting for you"
 Every `--ask` SHALL be its own post with its own ask-id; the number of open questions per session MUST NOT be limited. With
@@ -93,7 +93,7 @@ An empty "Resolved" post MUST NOT remain.
 #### Scenario: the only item answered
 - **WHEN** an addressee presses an option of the only item
 - **THEN** the post starts with ✅ and contains "question → **answer** — @who"
-Oracle: `chat-ask-to.test.sh`
+Test: `tests/test_questions.py` (Render.test_partial_and_done); the press itself — Oracle: `chat-ask-to.test.sh`
 
 ### Requirement: Reminder to cancel hanging questions
 If during a turn the owner spoke not by a button (terminal, chat message, free-text answer), and the session has open
@@ -149,7 +149,7 @@ MUST give exit code 3; text checks SHALL apply as to a normal post.
 #### Scenario: the session concludes
 - **WHEN** the session calls `--conclude` with the root of its DM thread
 - **THEN** the outcome line in the original thread, a mark in the DM thread
-Oracle: `chat-discuss.test.sh`
+Test: `tests/test_post.py` (Conclude)
 
 ### Requirement: "Waiting for you" in sections
 "Waiting for you" SHALL split lines into a section "Chat questions" and one section per answer sink. A button mark MUST NOT

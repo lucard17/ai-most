@@ -13,6 +13,10 @@ A connection is ``<config>/connections/<name>.env`` (KEY=VALUE, mode 0600). Keys
     CO_OWNERS       ``<role>:<login>,…`` — the login's words weigh as the owner's for that role only
     CONFIRMERS      ``<role>:<login>[+<login>],…`` — who else may press that role's confirmation
     PLUGINS, PLUGINS_OFF  extensions spec
+    EDGE_PUBLIC     where Mattermost reaches the edge for button actions (``host:port`` or URL)
+    PRIVATE_GUARD   ``on`` — outgoing text is checked against ``<config>/private-patterns`` (text spec)
+    BOT_OWNERS, BOT_SERVICE   agent directory: ``<prefix>:<login>`` owners, service bots listed apart
+    PROGRESS, PROGRESS_STEPS, WAIT_NOTIFY_AS   activity (status spec)
 
 Bot tokens: ``<config>/bots/<connection>/<role>`` (one token per file, 0600). A session is admitted to exactly the
 connections that name it; its *own* connection is the default one (``<config>/default``) if that admits it, otherwise the

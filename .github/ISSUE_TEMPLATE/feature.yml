@@ -1,0 +1,13 @@
+name: Feature or plugin idea
+description: New behaviour, a slash command, a source, a transport
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: Problem
+      description: What you cannot do today, in your team's words.
+    validations: {required: true}
+  - type: textarea
+    attributes:
+      label: Proposal
+      description: Core change or plugin (see openspec/specs/extensions)? Which extension point?
