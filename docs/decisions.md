@@ -1,0 +1,97 @@
+# Decisions
+
+Decisions taken before any code was moved. Each entry: what, why, what it rules out.
+
+## D1. Open source under MIT, author owns the code — 2026-11-27
+
+The bridge was started on 2026-11-20 in the author's personal repository, on the author's own Mattermost server, as a
+personal initiative; it moved into a company tool repository on 2026-11-23. There is no written contract covering this work,
+so the exclusive rights stay with the author. The project is published as the original; the company keeps a fork.
+
+- License: **MIT** — the norm among similar bridges; the company uses its fork without friction.
+- Public history starts fresh. No internal hostnames, channel names, people, or company-specific logic in code, docs or history.
+- Nothing from other paid work of the author goes in (only code written for this bridge).
+
+## D2. Name: `l-most` — 2026-11-27
+
+"most" is Russian for "bridge"; reads as "almost" in English. Package `l-most`, command and module `lmost`.
+Rejected: `matter-most` (confusingly similar to the Mattermost trademark), names starting with `claude-` (look official).
+
+## D3. Language: Python, port with cleanup, not a rewrite — 2026-11-27
+
+- Runtime: Python ≥ 3.8 standard library only — installs without dependencies. Dev-only deps allowed (pytest).
+- Bash logic (`chat-inbox`, `chat-dispatch`, `chat-setup`, hook bodies) moves to Python; hooks stay as 3–5 line shims.
+- The 1100-line link daemon is split into modules (routing, authority, questions, waiting list, reactions).
+- Linux and macOS: locking via `fcntl`, not the `flock` binary; services as a foreground process + example units for
+  systemd and launchd.
+- Install: `uv tool install l-most` / `pipx install l-most`.
+
+Rejected: TypeScript (native MCP SDK, but a rewrite and Python is the common language around agents), Go (single binary,
+most expensive port).
+
+## D4. Delivery: hooks now, Channels behind an interface later — 2026-11-27
+
+Events reach a Claude Code session through hooks (PostToolUse for urgent, Stop for the rest) and the wake dispatcher, as in
+the working version. Delivery and wake-up are a replaceable interface. A Channels (MCP) adapter comes when Channels leaves
+research preview **and** works for API-token accounts (on 2026-11-20 it did not).
+
+## D5. Scope of v1 — 2026-11-27
+
+In:
+- **Core** — session inbox, routing rules, sender roles (owner / peer / person), questions with buttons, confirmation ✅/❌
+  before dangerous actions in a chat-started turn, peer turn = read-only, edge service next to Mattermost, one bot per role,
+  several chat servers (connections), activity status, receipts by reactions.
+- **GitLab MR source** — shipped as a built-in plugin (example of an event source).
+- **Mattermost slash commands** — new: a command registry in the core (see D6).
+- **Claude Code plugin** — `/inbox`, hooks and skills installed as one plugin instead of a setup script editing settings.
+
+Out (stay in the author's private setup as external plugins): task-tracker answers (`plan`), review-session routing,
+terminal tab launcher, workspace-specific text checks.
+
+## D6. Extension model — 2026-11-27
+
+One pattern — *registry + interface*, plugins found via Python entry points and a local `plugins/` directory:
+
+| Extension point | Interface | First implementations |
+| --- | --- | --- |
+| Chat transport | read posts, post, buttons, reactions, users | Mattermost |
+| Event source | write a typed event to a session inbox | GitLab MR |
+| Delivery / wake | deliver events to a running session, wake an idle one | Claude Code hooks; Codex hooks |
+| Slash command | name, args, who may call, handler kind | built-in commands |
+| Answer sink | where a button answer goes besides the asker's inbox | — (author's tracker plugin, private) |
+
+Slash command kinds follow where a command can run (Mattermost calls only the edge; the owner's machine is reachable only
+through its outbound connection): `edge` (runs next to the server — `/unfollow`, `/bot-token` already work this way
+upstream), `bridge` (the edge leaves a signed command post in the caller's DM with the bot; the owner's bridge answers it),
+`session` (same post, becomes a `command` event in the role's inbox). **Authority is checked by the core, never by the
+command** — a command cannot bypass confirmation or the peer read-only rule. Spec: `openspec/specs/commands`.
+
+## D7. Order of work — 2026-11-27
+
+1. Port map: every upstream file → core / plugin / stays private ([port-map.md](port-map.md)).
+2. Specs in English — core only, with the extension interfaces added.
+3. Port module by module: spec scenarios → pytest → code. The 57 upstream shell tests run against the old code as the
+   behavioural oracle: same input, same observable result.
+4. Packaging: Claude Code plugin, `uv`/`pipx` install, CI on Linux and macOS.
+5. Publish on GitHub; the company tool repository switches to the package and keeps its private plugins.
+
+OpenSpec stays the canon for behaviour changes; small fixes need only a test and code (CONTRIBUTING).
+
+## D8. Freeze point and upstream flow — 2026-11-27
+
+The port starts from upstream `main` at `e77dc49` (2026-11-27). Upstream has 15 open spec changes; each one that lands later
+is ported by hand as its own change here, until the company tool repository switches to the package. After the switch
+the flow reverses: fixes land here first.
+
+## D9. One command with subcommands — 2026-11-27
+
+`chat-<x>` tools become `lmost <x>`: `link` (daemon), `dispatch` (daemon), `edge` (server side), `inbox`, `post`, `confirm`,
+`activity`, `bot add`, `channel`, `thread`, `file`, `react`, `who`, `agents`, `setup`, `plugins`, `commands`. Config moves
+from `~/.config/chat/` to `~/.config/lmost/`, state from `~/.local/state/chat-*` to `~/.local/state/lmost/`; env prefix
+`CHAT_` becomes `LMOST_` (`CHAT_CONFIRM` → `LMOST_CONFIRM`, `CHAT_POST_NAME` → `LMOST_ROLE`). Exit codes of `post` keep
+upstream values; plugin checks use 20–39 (the MR-link check moves from 9 to 20). `lmost migrate` imports an upstream
+config and state.
+
+## Open
+
+- Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

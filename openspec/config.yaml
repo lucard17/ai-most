@@ -1,0 +1,18 @@
+schema: change
+
+context: |
+  OpenSpec of l-most, a bridge between Claude Code / Codex sessions and a Mattermost server.
+  specs/<area>/spec.md is the canon of behaviour: requirements with scenarios and the tests that hold them.
+  Write in English. Keep technical names, commands, config keys and OpenSpec markers as they are.
+  A behaviour change is a change in changes/<name> (proposal.md, design.md with the reasoning, spec delta, tasks.md);
+  code follows after the maintainer's approval; after implementation `openspec archive` moves the delta into specs.
+  Small fixes that do not change specified behaviour need only a test and the code (see CONTRIBUTING).
+
+  Test references:
+    "Test:"   — test in this repository (tests/...).
+    "Oracle:" — upstream shell test the port must match; replaced by a "Test:" line when the module is ported.
+    "NEW"     — behaviour not present upstream; needs a new test.
+
+rules:
+  tasks:
+    - 'One tasks.md group = one unit of work; each group names a check command that fails on unfinished work.'
