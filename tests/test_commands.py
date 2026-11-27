@@ -159,7 +159,7 @@ class StatusWho(Base):
         self.beat("BV", "idle", age_s=40, role="devops")
         out = self.run_cmd("agent", "UO", "status deployer")
         self.assertIn("@owner-deployer (deployer) — running · unread 2 · last turn "
-                      + time.strftime("%H:%M", time.localtime(lt / 1000)), out)
+                      + commands._when(lt), out)          # "HH:MM" today, with the date otherwise (near midnight)
         self.assertIn("_data 30 s old_", out)
         self.assertNotIn("owner-devops", out)
         who = self.run_cmd("agent", "UO", "who")
@@ -173,7 +173,7 @@ class StatusWho(Base):
         self.beat("BD", "running", age_s=2 * H)
         self.beat("BV", "idle", age_s=3 * H)
         out = self.run_cmd("agent", "UO", "who")
-        self.assertTrue(out.startswith("Bridge offline since " + time.strftime("%H:%M", time.localtime(at))), out)
+        self.assertTrue(out.startswith("Bridge offline since " + commands._when(int(at * 1000))), out)
         self.assertIn("@owner-deployer — running", out)
         self.assertIn("@owner-devops — idle", out)
 
