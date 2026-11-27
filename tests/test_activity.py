@@ -213,3 +213,9 @@ class Real(IsolatedTest):
         activity.end(self.role)
         self.assertIn("white_check_mark", self.reactions(root["id"]))
         self.assertIn("white_check_mark", self.reactions(more["id"]))
+
+
+class Wired(IsolatedTest):
+    def test_inbox_ack_starts_a_turn(self):
+        from lmost import inbox
+        self.assertIn(activity.on_ack, inbox.ACK_LISTENERS)

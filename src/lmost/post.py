@@ -18,7 +18,6 @@ Exit codes: 2 usage, 3 not admitted / no bot / someone else's post, 4–7 text c
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import subprocess
@@ -42,12 +41,9 @@ def role_name() -> Optional[str]:
 
 
 def turn_state(role: str) -> Optional[dict]:
-    """The role's current chat turn (written by ``lmost activity``): via, root, ended, from, role…"""
-    d = Path(os.environ.get("LMOST_ACTIVITY_DIR") or paths.state_dir() / "activity")
-    try:
-        return json.loads((d / f"{role}.json").read_text())
-    except (OSError, ValueError):
-        return None
+    """The role's running chat turn (``lmost activity``): via, root, from, role…"""
+    from . import activity
+    return activity.turn(role)
 
 
 def _mermaid_dir() -> Path:

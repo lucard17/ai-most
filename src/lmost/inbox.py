@@ -355,3 +355,11 @@ def session_name(session_id: str = "") -> Optional[str]:
             if rec.get("type") == "custom-title" and rec.get("customTitle"):
                 title = rec["customTitle"]
     return title
+
+
+def _default_listeners() -> None:
+    from . import activity  # a person's message read from the chat starts a chat turn ("typing…", progress, status)
+    ACK_LISTENERS.append(activity.on_ack)
+
+
+_default_listeners()

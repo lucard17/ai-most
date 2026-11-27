@@ -145,13 +145,14 @@ class TurnMarks(IsolatedTest):
             raise RuntimeError("receipt failed")
 
         seen = []
+        saved = list(inbox.ACK_LISTENERS)
         inbox.ACK_LISTENERS[:] = [boom, lambda role, events: seen.append((role, len(events)))]
         try:
             inbox.Inbox("r").put("x")
             self.assertEqual(len(inbox.Inbox("r").unread(ack=True)), 1)
             self.assertEqual(seen, [("r", 1)])
         finally:
-            inbox.ACK_LISTENERS.clear()
+            inbox.ACK_LISTENERS[:] = saved
 
 
 class Subscriptions(IsolatedTest):

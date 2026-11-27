@@ -13,7 +13,7 @@ import re
 import sys
 from typing import List
 
-from . import agents, connections, inbox, mattermost, paths
+from . import agents, connections, inbox, mattermost, textcheck
 
 
 def _err(msg: str, code: int) -> int:
@@ -23,9 +23,7 @@ def _err(msg: str, code: int) -> int:
 
 def private_hits(text: str) -> List[str]:
     """Private patterns found in the text; raises OSError when the patterns file is missing."""
-    with open(paths.config_dir() / "private-patterns", encoding="utf-8") as f:
-        pats = [x.strip() for x in f if x.strip() and not x.startswith("#")]
-    return [p for p in pats if re.search(p, text, re.I)]
+    return [p for p in textcheck.private_patterns() if re.search(p, text, re.I)]
 
 
 def main(argv: List[str]) -> int:

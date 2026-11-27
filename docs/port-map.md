@@ -9,26 +9,26 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | Upstream | Lines | Target | Notes |
 | --- | ---: | --- | --- |
 | `chat-link` | 1093 | core, split | link daemon → modules: routing, authority, questions, waiting list, reactions, loop guard. Answers into the task tracker → private answer-sink plugin |
-| `chat-post` | 704 | core, split | post as role bot, asks with buttons, edit, pin, invite. Tracker question keys → private |
+| `chat-post` | 704 | core ✅, split | **ported** → `src/lmost/{post,questions,textcheck}.py`, `lmost post`. Tracker question keys, cold reader → private; MR links → GitLab plugin (code 20); answer sinks — `Poster.ask(sink=…)` |
 | `chat.d/edge.py` | 654 | core | buttons, dialogs, per-owner keys; its hard-coded `/unfollow` and `/bot-token` become the first `edge` commands of the registry (D6) |
 | `chat.d/chatlib.py` | 332 | core, split | connections, admission, bots, relay, thread route **ported** ✅ → `src/lmost/connections.py` (19 tests; exact `cwd` from transcripts instead of decoding the directory name). API/upload/download/describe ported → `src/lmost/mattermost.py` ✅; asks registry, snoozes, discussions → questions. `REVIEW_SESSIONS` → private admission plugin (`ADMISSION`, `BOT_RESOLVERS`); tracker env → private |
-| `chat-activity` | 313 | core | typing, bot status, progress post |
+| `chat-activity` | 313 | core ✅ | **ported** → `src/lmost/activity.py`, `lmost activity`; `begin` wired to `inbox.ACK_LISTENERS` |
 | `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional |
 | `chat-dispatch` | 217 | core | wake dispatcher, bash → Python; terminal tab launcher hint → configurable |
-| `chat-inbox` | 134 | core ✅ | **ported** → `src/lmost/inbox.py`, `lmost inbox`; 27 tests. Receipts and activity on ack — via `ACK_LISTENERS`, wired when those modules land |
+| `chat-inbox` | 134 | core ✅ | **ported** → `src/lmost/inbox.py`, `lmost inbox`; 27 tests. Activity on ack wired via `ACK_LISTENERS`; receipts (📬/👀) — with the bridge |
 | `chat.d/chatws.py` | 133 | core ✅ | **ported** → `src/lmost/ws.py` (stoppable watcher); tested on the real server |
-| `chat-who` | 125 | core, split | chat login lookup; GitLab side → plugin |
-| `chat-agents` | 100 | core | agent directory from bot profiles |
+| `chat-who` | 125 | core ✅, split | **ported** chat side → `lmost who`; other sources via `WHO_SOURCES` (GitLab → plugin) |
+| `chat-agents` | 100 | core ✅ | **ported** → `src/lmost/agents.py`, `lmost agents` |
 | `chat-confirm` | 96 | core | confirmation post ✅/❌ |
-| `chat-bot-add` | 93 | core | create a role bot (`mmctl`) |
-| `chat-setup` | 91 | cc-plugin + core | replaced by plugin install + `lmost setup --check` |
+| `chat-bot-add` | 93 | core ✅ | **ported** → `src/lmost/botadmin.py`, `lmost bot add` — over REST with an admin token instead of ssh + `mmctl` (D12) |
+| `chat-setup` | 91 | cc-plugin + core | `lmost setup [--check]` ✅ (dirs, connection check); units — with the Claude Code plugin |
 | `chat.d/coldread.py` | 63 | private | unexplained-code check tied to a workspace glossary; maybe later as optional text-check plugin |
 | `chat.d/stale_asks.py` | 63 | core | Stop reminder to cancel stale questions |
-| `chat-channel` | 47 | core | channel purpose, header |
+| `chat-channel` | 47 | core ✅ | **ported** → `lmost channel` |
 | `chat.d/turn_origin.py` | 47 | core | who started the turn, from the transcript |
-| `chat-thread` | 35 | core | read a thread |
-| `chat-file` | 27 | core | download an attachment |
-| `chat-react` | 20 | core | receipt reactions |
+| `chat-thread` | 35 | core ✅ | **ported** → `lmost thread` |
+| `chat-file` | 27 | core ✅ | **ported** → `lmost file` |
+| `chat-react` | 20 | core ✅ | **ported** → `lmost react` |
 
 ## Hooks
 
