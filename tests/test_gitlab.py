@@ -296,3 +296,29 @@ class Available(IsolatedTest):
         finally:
             if saved is not None:
                 os.environ["LMOST_GLAB_BIN"] = saved
+
+
+class Timer(Glab):
+    """`lmost setup` gets the MR-watch timer from the plugin only where glab can be used."""
+
+    def units(self):
+        from lmost import cli_who, install
+        saved, loaded, pl = list(install.SERVICES), plugins._loaded, dict(plugins._plugins)
+        tc, ws = list(textcheck.TEXT_CHECKS), list(cli_who.WHO_SOURCES)
+        try:
+            install.SERVICES.clear()
+            plugins._plugins.clear()
+            plugins._loaded = False
+            plugins.load()
+            return sorted(n for n, _ in install.SERVICES)
+        finally:
+            install.SERVICES[:] = saved
+            textcheck.TEXT_CHECKS[:], cli_who.WHO_SOURCES[:] = tc, ws
+            plugins._plugins.clear()
+            plugins._plugins.update(pl)
+            plugins._loaded = loaded
+
+    def test_timer_only_with_glab(self):
+        self.assertEqual(self.units(), ["lmost-gitlab.service", "lmost-gitlab.timer"])
+        os.environ["LMOST_GLAB_BIN"] = str(self.tmp / "no-such-glab")
+        self.assertEqual(self.units(), [])

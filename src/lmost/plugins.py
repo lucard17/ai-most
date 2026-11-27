@@ -157,6 +157,12 @@ class Registrar:
         from . import commands
         self._pending.append(lambda: enabled_anywhere(self.plugin.name) and commands.register(cmd))
 
+    def service(self, name: str, template: str) -> None:
+        """A background unit for ``lmost setup``: ``*.service``/``*.timer`` (systemd) or ``*.plist`` (launchd), with the
+        ``@PYTHON@``/``@PATH@``/``@PYTHONPATH@``/``@LOG@`` placeholders of ``install``."""
+        from . import install
+        self._pending.append(lambda: enabled_anywhere(self.plugin.name) and install.SERVICES.append((name, template)))
+
     def answer_sink(self, key: str, sink):
         """``sink.answer(conn, q, part, answer, title)``, optional ``sink.rows(conn)`` — see ANSWER_SINKS."""
         self._pending.append(lambda: ANSWER_SINKS.__setitem__(key, (self.plugin.name, sink)))

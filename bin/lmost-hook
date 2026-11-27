@@ -1,12 +1,14 @@
 #!/bin/sh
-# Hook entry for Claude Code (plugin hooks/hooks.json) and Codex: `lmost-hook inbox|ask-guard|confirm-guard|peer-guard`.
+# Hook entry for Claude Code (plugin hooks/hooks.json) and Codex: `lmost-hook inbox|ask-guard|confirm-guard|peer-guard`,
+# and `lmost-hook gitlab` (PostToolUse Bash: an MR the session created is linked to it — built-in GitLab plugin).
 # Where the bridge is not installed it exits at once — no Python start, no output, nothing written (delivery spec:
 # hooks stay silent where there is no chat), so the plugin may be enabled for a whole team.
 state=${LMOST_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/lmost}
 case "$1" in
-  inbox|ask-guard) [ -d "${LMOST_INBOX_DIR:-$state/inbox}" ] || exit 0 ;;
+  inbox|ask-guard|gitlab) [ -d "${LMOST_INBOX_DIR:-$state/inbox}" ] || exit 0 ;;
   confirm-guard|peer-guard) [ -d "${LMOST_MARKS_DIR:-$state/marks}" ] || exit 0 ;;
 esac
 command -v "${LMOST_PYTHON:-python3}" >/dev/null 2>&1 || exit 0
 root=$(cd "$(dirname "$0")/.." && pwd)
-PYTHONPATH="$root/src${PYTHONPATH:+:$PYTHONPATH}" exec "${LMOST_PYTHON:-python3}" -m lmost hook "$@"
+if [ "$1" = gitlab ]; then set -- gitlab hook; else set -- hook "$@"; fi
+PYTHONPATH="$root/src${PYTHONPATH:+:$PYTHONPATH}" exec "${LMOST_PYTHON:-python3}" -m lmost "$@"

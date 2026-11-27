@@ -32,9 +32,9 @@ class Manifest(IsolatedTest):
                 for h in g["hooks"]:
                     m = re.fullmatch(r"\$\{CLAUDE_PLUGIN_ROOT\}/bin/lmost-hook ([a-z-]+)", h["command"])
                     self.assertTrue(m, h["command"])
-                    self.assertIn(m.group(1), hooks.HOOKS)
+                    self.assertIn(m.group(1), set(hooks.HOOKS) | {"gitlab"})
                     got.add((event, g.get("matcher", ""), m.group(1)))
-        self.assertEqual(got, {("PostToolUse", "*", "inbox"), ("Stop", "", "inbox"),
+        self.assertEqual(got, {("PostToolUse", "*", "inbox"), ("PostToolUse", "Bash", "gitlab"), ("Stop", "", "inbox"),
                                ("PreToolUse", "AskUserQuestion", "ask-guard"),
                                ("PreToolUse", "Bash", "confirm-guard"),
                                ("PreToolUse", "Bash|Edit|Write|NotebookEdit", "peer-guard")})
@@ -64,7 +64,7 @@ class Wrapper(IsolatedTest):
         return sorted(str(p.relative_to(self.tmp / "home")) for p in (self.tmp / "home").rglob("*"))
 
     def test_silent_without_the_bridge(self):
-        for name in hooks.HOOKS:
+        for name in list(hooks.HOOKS) + ["gitlab"]:
             r = self.run_hook(name)
             self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""), name)
         self.assertFalse(self.rec.exists(), "no Python start without the bridge")
@@ -77,6 +77,9 @@ class Wrapper(IsolatedTest):
         pp, args = self.rec.read_text().strip().split("|")
         self.assertEqual(args, "-m lmost hook inbox")
         self.assertEqual(pp.split(":")[0], str(ROOT / "src"))
+        self.rec.unlink()
+        self.run_hook("gitlab")
+        self.assertEqual(self.rec.read_text().strip().split("|")[1], "-m lmost gitlab hook")
         self.rec.unlink()
         self.run_hook("confirm-guard")
         self.assertFalse(self.rec.exists(), "guards look at the marks directory")

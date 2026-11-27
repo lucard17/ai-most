@@ -2,7 +2,8 @@
   "description": "l-most: inbox delivery mid-turn and at the end of the turn; guards for chat-started turns. Silent where the bridge is not set up.",
   "hooks": {
     "PostToolUse": [
-      {"matcher": "*", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook inbox"}]}
+      {"matcher": "*", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook inbox"}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook gitlab"}]}
     ],
     "Stop": [
       {"hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook inbox"}]}

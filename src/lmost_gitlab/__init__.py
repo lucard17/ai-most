@@ -17,7 +17,32 @@ VERSION = "0.1.0"
 KINDS = ("source", "text_check")
 
 
+SERVICE = """[Unit]
+Description=lmost gitlab — activity of linked merge requests into the sessions' inboxes
+
+[Service]
+Type=oneshot
+ExecStart=@PYTHON@ -m lmost gitlab once
+Environment=PATH=@PATH@
+Environment=PYTHONPATH=@PYTHONPATH@
+"""
+
+TIMER = """[Unit]
+Description=lmost gitlab — poll linked merge requests
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target
+"""
+
+
 def register(reg) -> None:
-    from . import mrlinks, who
+    from . import glab, mrlinks, who
     reg.text_check(mrlinks.check)
     reg.who_source(who.search)
+    if glab.available():                 # no glab — no timer either
+        reg.service("lmost-gitlab.service", SERVICE)
+        reg.service("lmost-gitlab.timer", TIMER)
