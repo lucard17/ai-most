@@ -127,6 +127,9 @@ class PeerGuard(HookTest):
                                               tool_input={"file_path": "src/a.js"})))
         self.assertEqual(self.hook("peer-guard", tool_name="Edit", cwd=str(self.ws),
                                    tool_input={"file_path": "temp/a.md"}).stdout, "", "relative — from the session cwd")
+        nb = lambda f: self.hook("peer-guard", tool_name="NotebookEdit", tool_input={"notebook_path": f, "new_source": "x"})
+        self.assertTrue(self.denied(nb(str(self.ws / "src" / "a.ipynb"))), "a notebook is a file too")
+        self.assertEqual(nb(str(self.scratch / "a.ipynb")).stdout, "")
 
     def test_owner_confirmation_one_action(self):
         self.peer_post()

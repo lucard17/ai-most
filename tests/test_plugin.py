@@ -37,7 +37,7 @@ class Manifest(IsolatedTest):
         self.assertEqual(got, {("PostToolUse", "*", "inbox"), ("Stop", "", "inbox"),
                                ("PreToolUse", "AskUserQuestion", "ask-guard"),
                                ("PreToolUse", "Bash", "confirm-guard"),
-                               ("PreToolUse", "Bash|Edit|Write", "peer-guard")})
+                               ("PreToolUse", "Bash|Edit|Write|NotebookEdit", "peer-guard")})
 
     def test_setup_command(self):
         text = (ROOT / "commands" / "setup.md").read_text()

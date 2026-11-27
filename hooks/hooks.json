@@ -10,7 +10,7 @@
     "PreToolUse": [
       {"matcher": "AskUserQuestion", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook ask-guard"}]},
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook confirm-guard"}]},
-      {"matcher": "Bash|Edit|Write", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook peer-guard"}]}
+      {"matcher": "Bash|Edit|Write|NotebookEdit", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/lmost-hook peer-guard"}]}
     ]
   }
 }

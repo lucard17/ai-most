@@ -87,9 +87,16 @@ class Publish(IsolatedTest):
         self.assertIn(f"| @{self.prefix}-scout | @owner | finds things |", pins[0]["message"])
         first = pins[0]
 
-        r = self.run_publish()
+        # The table lists every bot of the team, and other tests add and disable bots on the shared server meanwhile:
+        # a run may legitimately say "updated". Repeat until a quiet moment; the quiet run must not write.
+        for _ in range(5):
+            before = self.call("GET", f"/posts/{first['id']}")["update_at"]
+            r = self.run_publish()
+            if "directory unchanged" in r.stdout:
+                break
+            self.assertIn(f"directory updated (post {first['id']})", r.stdout)
         self.assertIn("directory unchanged", r.stdout)
-        self.assertEqual(self.call("GET", f"/posts/{first['id']}")["update_at"], first["update_at"])
+        self.assertEqual(self.call("GET", f"/posts/{first['id']}")["update_at"], before)
 
         self.call("PUT", f"/bots/{self.bot['user_id']}", {"username": f"{self.prefix}-scout",
                                                           "display_name": "scout", "description": "finds more"})

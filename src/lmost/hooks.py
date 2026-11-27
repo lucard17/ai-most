@@ -4,7 +4,7 @@
                    unread events as context of the turn
     ask-guard      PreToolUse AskUserQuestion — a session with a bot asks the owner in chat, not in the terminal
     confirm-guard  PreToolUse Bash — a dangerous command in a chat-started turn needs the owner's button
-    peer-guard     PreToolUse Bash|Edit|Write — a turn started by a peer's post is read-only
+    peer-guard     PreToolUse Bash|Edit|Write|NotebookEdit — a turn started by a peer's post is read-only
 
 Every hook exits at once, printing nothing and creating nothing, where the bridge is not installed (no inbox or marks
 directory), and for subagents (``agent_id`` in the input: they share the session id and would eat its events).
@@ -568,7 +568,7 @@ def read_only_reason(cmd: str, cwd: Optional[str]) -> Optional[str]:
 
 def peer_guard(inp: dict) -> Result:
     tool = inp.get("tool_name")
-    if tool not in ("Bash", "Edit", "Write"):
+    if tool not in ("Bash", "Edit", "Write", "NotebookEdit"):
         return PASS
     sid = inp.get("session_id") or ""
     if not sid or not paths.marks_dir().is_dir():
@@ -596,7 +596,8 @@ def peer_guard(inp: dict) -> Result:
     pre = f"🛡 lmost peer-guard: the turn was started by a peer's chat post ({who or 'not the owner'}) — read-only"
     cwd = inp.get("cwd") or None
     if tool != "Bash":
-        f = str((inp.get("tool_input") or {}).get("file_path") or "")
+        ti = inp.get("tool_input") or {}
+        f = str(ti.get("file_path") or ti.get("notebook_path") or "")
         if f and in_scratch(f, cwd):
             return PASS
         return deny(inp, f"{pre}: files are edited only in scratch directories ({', '.join(writable_roots())}), not "
