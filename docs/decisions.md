@@ -104,6 +104,16 @@ The upstream "session mode" (`chat|cli`, in flight upstream as part of a larger 
 inbox code) is generic and goes into the core delivery spec; the rest of that upstream change (folder pins, compaction
 modes) is workspace-specific and stays out.
 
+## D11. Two test levels: fast fake, real disposable Mattermost — 2026-11-27
+
+- **Fast** (`python3 -m unittest discover -s tests -t tests`): no network, no Docker; every commit.
+- **Integration**: a disposable Mattermost from `tests/integration/compose.yaml` (same image as production use, tmpfs
+  data, 127.0.0.1 only, its own small subnet, memory caps): `tests/integration/up.sh` creates team `it`, people `owner`
+  (admin) and `colleague`, bots `deployer` and `relay`, and writes tokens to `it.env` (gitignored); tests that need it
+  skip when it is down (`LMOST_IT=0` forces skipping). `down.sh` wipes it. Never point tests at a live server.
+- What only the real server proves: props replaced whole on patch, bot permissions, websocket events, and real button
+  presses calling the edge (`POST /posts/<id>/actions/<action>` as a user).
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.
