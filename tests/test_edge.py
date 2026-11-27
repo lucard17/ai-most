@@ -329,7 +329,8 @@ class Http(World):
             self.assertEqual(post("/nothing", b"{}")[0], 404)
             self.assertEqual(post("/action", b"{}")[0], 403)
             with urllib.request.urlopen(f"http://127.0.0.1:{port}/version") as r:
-                self.assertEqual(json.loads(r.read())["version"], edgemod.__version__)
+                v = json.loads(r.read())
+                self.assertEqual((v["version"], v["props_prefix"]), (edgemod.__version__, edgemod.names.PREFIX))
             self.assertFalse(any(e.slash_key("unfollow") in ln for ln in self.lines), "slash key not in the log")
             self.assertTrue(any("?k=…" in ln for ln in self.lines))
         finally:

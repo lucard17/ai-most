@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from . import heartbeat
+from .names import P
 
 if TYPE_CHECKING:  # pragma: no cover
     from .edge import Edge
@@ -274,7 +275,7 @@ def send_command_post(call: Call, cmd: Command) -> str:
     dm = edge.api("POST", "/channels/direct", [call.user_id, bot["id"]])["id"]
     shown = " ".join([f"/{call.name}", call.sub] + [shlex.quote(a) for a in call.args]).replace("  ", " ")
     edge.api("POST", "/posts", {"channel_id": dm, "message": f"`{shown}` — from @{call.user_name}",
-                                "props": {"aimost_command": payload}})
+                                "props": {P("command"): payload}})
     hb = heartbeat.fetch(edge.api, bot["id"])
     if heartbeat.offline(hb):
         since = _when(hb["seen"]) if hb else "never seen"

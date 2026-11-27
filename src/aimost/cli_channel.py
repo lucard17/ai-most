@@ -17,6 +17,7 @@ from typing import List
 
 from . import post, textcheck
 from .cli_thread import reader
+from .names import P
 
 
 def main(argv: List[str]) -> int:
@@ -42,7 +43,7 @@ def main(argv: List[str]) -> int:
             pinned = (p.api("GET", f"/channels/{ch['id']}/pinned") or {}).get("posts") or {}
             print(f"purpose: {ch.get('purpose') or '—'}\nheader: {ch.get('header') or '—'}")
             for x in sorted(pinned.values(), key=lambda x: x.get("create_at", 0)):
-                k = (x.get("props") or {}).get("aimost_pin")
+                k = (x.get("props") or {}).get(P("pin"))
                 first = (x.get("message") or "").splitlines()[0][:80] if x.get("message") else ""
                 print(f"pin {x['id']}{' [' + str(k) + ']' if k else ''}: {first}")
             return 0

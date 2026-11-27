@@ -53,6 +53,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from . import activity, askstore, commands, connections, heartbeat, inbox, linkctx, mattermost, paths, waiting, ws
+from .names import P
 
 Connection = connections.Connection
 
@@ -70,7 +71,7 @@ MEANING = {"+1": "yes / agreed", "thumbsup": "yes / agreed", "white_check_mark":
            "thumbsdown": "no", "eyes": "seen"}
 # button marks in post props: the bridge trusts them only on posts of its own bots (the author writes a post's props,
 # and a colleague's bot could put "answered by the owner" there)
-MARK_PROPS = waiting.MARK_PROPS + ("aimost_confirm",)
+MARK_PROPS = waiting.MARK_PROPS + (P("confirm"),)
 COMMAND_SINK = "aimost:command"
 
 # ── extension points ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -371,9 +372,9 @@ class Link:
     def owner_touched(self, x: dict) -> bool:
         """A person took part without a post: the owner's button answer or confirmation, or reaction."""
         pr = x.get("props") or {}
-        if any((a or {}).get("user_id") == self.owner for a in (pr.get("aimost_answers") or {}).values()):
+        if any((a or {}).get("user_id") == self.owner for a in (pr.get(P("answers")) or {}).values()):
             return True
-        if (pr.get("aimost_confirm") or {}).get("user_id") == self.owner:
+        if (pr.get(P("confirm")) or {}).get("user_id") == self.owner:
             return True
         return any(r.get("user_id") == self.owner for r in (x.get("metadata") or {}).get("reactions") or [])
 
@@ -448,7 +449,7 @@ class Link:
         return secret or None
 
     def on_command(self, p: dict, who: str) -> None:
-        payload = (p.get("props") or {}).get("aimost_command") or {}
+        payload = (p.get("props") or {}).get(P("command")) or {}
         if p["id"] in self.commands["done"] or p["id"] in self.commands["asked"].values():
             return
         if payload.get("bot") != self.ids.get(who):
@@ -527,14 +528,14 @@ class Link:
 
     def on_command_answer(self, p: dict, who: str) -> None:
         props = p.get("props") or {}
-        q = props.get("aimost_question")
+        q = props.get(P("question"))
         cmd_post = self.commands["asked"].get(q)
         if not cmd_post:
             return
         cp = self.api("GET", f"/posts/{cmd_post}", who=who)
-        payload = (cp.get("props") or {}).get("aimost_command") or {}
+        payload = (cp.get("props") or {}).get(P("command")) or {}
         caller = (payload.get("caller") or {}).get("id")
-        for part, a in sorted((props.get("aimost_answers") or {}).items()):
+        for part, a in sorted((props.get(P("answers")) or {}).items()):
             if not caller or a.get("user_id") != caller:
                 continue                                # only the caller's press counts
             del self.commands["asked"][q]
@@ -661,7 +662,7 @@ class Link:
         if not own_bot:
             props = {k: v for k, v in props.items() if k not in MARK_PROPS}
         else:
-            if props.get("aimost_answers") and (props.get("aimost_ask") or {}).get("sink") == COMMAND_SINK:
+            if props.get(P("answers")) and (props.get(P("ask")) or {}).get("sink") == COMMAND_SINK:
                 self.on_command_answer(p, who)       # "the command is old — still needed?"
             else:
                 waiting.on_post(self.c, p, who)      # answers, "not relevant", snoozes, discussions
@@ -670,7 +671,7 @@ class Link:
                     fn(self, p, who)
                 except Exception as e:
                     log(f"[{self.name}] post hook {getattr(fn, '__name__', fn)}: {e}")
-        if props.get("aimost_command") and ch.get("type") == "D":
+        if props.get(P("command")) and ch.get("type") == "D":
             self.on_command(p, who)
             return
         if p.get("update_at", p["create_at"]) != p["create_at"]:

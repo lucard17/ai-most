@@ -21,6 +21,8 @@ Environment:
     EDGE_OWNER_TTL_S     cache of a bot's owner (300)
     EDGE_RELOAD_S        how often the edge checks its own code and re-executes on change (1; 0 — never)
     EDGE_UNFOLLOW_EVERY_S  period of the /unfollow sweep (900; 0 — no sweep thread)
+    AIMOST_PROPS_PREFIX  prefix of the names in post props (``aimost``) — the same as the bridges of this server use
+                         (``names``); ``GET /version`` reports it
 """
 
 from __future__ import annotations
@@ -40,6 +42,8 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import __version__, commands, confirm, mattermost, questions
+from . import names
+from .names import P
 
 Reply = Tuple[int, dict]
 
@@ -50,7 +54,7 @@ RETRY = "Could not read the question from the chat server — press again in a f
 MOBILE_HINT = "📱 From a phone the dialog may fail to submit — then answer in words in the question's thread."
 # props a redraw keeps (a patch replaces props whole): who wrote the post — the session and the relay bot it posted
 # through; the pin key (``aimost post --pin``); the "discuss in DM" marks
-KEPT_PROPS = ("agent", "relay", "aimost_pin", "aimost_discuss")
+KEPT_PROPS = ("agent", "relay", P("pin"), P("discuss"))
 SPECIAL_KINDS = ("confirm", "waiting-drop", "waiting-snooze", "discuss")
 
 
@@ -300,20 +304,20 @@ class Edge:
                 props = (self.api("GET", f"/posts/{post_id}") or {}).get("props") or {}
             except Exception as x:
                 self.log(f"post {post_id}: not read ({type(x).__name__})")
-        spec = props.get("aimost_ask") or props.get("aimost_spec") or ctx.get("spec")
-        marks = dict(props.get("aimost_answers") or ctx.get("marks") or {})
+        spec = props.get(P("ask")) or props.get(P("spec")) or ctx.get("spec")
+        marks = dict(props.get(P("answers")) or ctx.get("marks") or {})
         answers = dict(ctx.get("answers") or {})
         for k, m in marks.items():
             if m.get("by"):
                 answers[k] = {**({"option": m["option"]} if m.get("option") else {"text": m.get("text", "")}), "by": m["by"]}
-        return spec, answers, marks, props.get("aimost_cancelled"), props
+        return spec, answers, marks, props.get(P("cancelled")), props
 
     def props_for(self, ctx: dict, spec: dict, answers: dict, marks: dict, post_props: dict, auth: Dict[str, str]):
         """Message and props of a question post after a choice. A patch replaces props whole — the spec (read by the bridge
         and the next press) and the author are written again."""
         msg, atts = questions.render(ctx["q"], spec, answers, ctx.get("agent"), auth, self.action_url)
-        props = {"attachments": atts, "aimost_question": ctx["q"], "aimost_answers": marks,
-                 ("aimost_ask" if ctx["q"].startswith("ask-") else "aimost_spec"): spec}
+        props = {"attachments": atts, P("question"): ctx["q"], P("answers"): marks,
+                 (P("ask") if ctx["q"].startswith("ask-") else P("spec")): spec}
         props.update({k: v for k, v in (post_props or {}).items() if k in KEPT_PROPS and v})
         if ctx.get("agent"):
             props["agent"] = ctx["agent"]
@@ -384,14 +388,14 @@ class Edge:
                                            "only from the addressee. Write your opinion in the thread."}
         if kind == "waiting-drop":
             # "no longer relevant" in the "Waiting for you" pin: a mark in the pin's props; the owner's bridge drops it
-            self._patch_marks(post_id, "aimost_waiting_drop", ctx["q"],
+            self._patch_marks(post_id, P("waiting_drop"), ctx["q"],
                               {"asker": ctx.get("asker"), "user_id": uid, "at": _now_ms()})
             return 200, {"ephemeral_text": f"Dropping {ctx['q']} — the pin updates in a few seconds."}
         if kind == "waiting-snooze":
             v = str(ctx.get("selected_option") or "")
             if not v:
                 return 200, {"ephemeral_text": "No period chosen."}
-            self._patch_marks(post_id, "aimost_waiting_snooze", ctx.get("key") or v,
+            self._patch_marks(post_id, P("waiting_snooze"), ctx.get("key") or v,
                               {"value": v, "asker": ctx.get("asker"), "user_id": uid, "at": _now_ms()})
             return 200, {"ephemeral_text": ("Bringing back" if v.startswith("back:") else "Snoozing")
                          + " — the pin updates in a few seconds."}
@@ -400,13 +404,13 @@ class Edge:
             # bridge — the edge has no session bot tokens
             post = self.api("GET", f"/posts/{post_id}") or {}
             props = dict(post.get("props") or {})
-            if props.get("aimost_cancelled"):
-                return 200, {"ephemeral_text": gone_text(props["aimost_cancelled"])}
-            dm = dict(props.get("aimost_discuss") or {})
+            if props.get(P("cancelled")):
+                return 200, {"ephemeral_text": gone_text(props[P("cancelled")])}
+            dm = dict(props.get(P("discuss")) or {})
             if uid in dm:
                 return 200, {"ephemeral_text": "The discussion is already open — in your DM with the session's bot."}
             dm[uid] = {"at": _now_ms(), "by": user}
-            props["aimost_discuss"] = dm
+            props[P("discuss")] = dm
             self.api("PUT", f"/posts/{post['id']}/patch", {"props": props})
             return 200, {"ephemeral_text": "💬 The discussion opens in your DM with the session's bot in a few seconds."}
         if kind == "confirm":
@@ -417,7 +421,7 @@ class Edge:
             else:                                # the first form (what/details in the button)
                 msg, atts = confirm.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"),
                                                    self.action_url, auth, done=done)
-            props = {"attachments": atts, "aimost_confirm": done, "aimost_confirm_request": ctx["id"]}
+            props = {"attachments": atts, P("confirm"): done, P("confirm_request"): ctx["id"]}
             if ctx.get("agent"):
                 props["agent"] = ctx["agent"]
             return 200, {"update": {"message": msg, "props": props}}
@@ -518,7 +522,7 @@ def make_server(edge: Edge, reload_s: Optional[float] = None, argv: Optional[Lis
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/version":
-                return self.reply(200, {"version": __version__})
+                return self.reply(200, {"version": __version__, "props_prefix": names.PREFIX})
             self.reply(404, {})
 
         def do_POST(self):

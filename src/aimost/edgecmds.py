@@ -22,12 +22,13 @@ from typing import TYPE_CHECKING, List, Optional
 
 from . import heartbeat
 from .commands import Call, Command, owned_bots, register
+from .names import P
 
 if TYPE_CHECKING:  # pragma: no cover
     from .edge import Edge
 
 # ── /unfollow
-UNF_CAT, UNF_LOG, UNF_USERS = "aimost_unfollow", "aimost_unfollow_log", "aimost_unfollow_users"
+UNF_CAT, UNF_LOG, UNF_USERS = P("unfollow"), P("unfollow_log"), P("unfollow_users")
 UNF_DEFAULT_H, UNF_MIN_H, UNF_MAX_H, UNF_KEEP_S = 2.0, 0.5, 24.0 * 7, 14 * 86400
 UNF_HELP = ("`/unfollow @<bot> [period]` — unfollow that bot's threads after a quiet period (`30m`, `2h`, `1d`; default 2h, "
             "from 30 minutes to 7 days) · `/unfollow @<bot> off` — turn off · `/unfollow` — my settings · "
