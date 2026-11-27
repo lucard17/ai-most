@@ -67,8 +67,8 @@ class Sink:
     def __init__(self, refuse=False):
         self.calls, self.refuse = [], refuse
 
-    def answer(self, conn, q, part, a, title):
-        self.calls.append((q, part, a.get("option"), title))
+    def answer(self, conn, q, part, a, title, ref=None):
+        self.calls.append((q, part, a.get("option"), title) + ((ref,) if ref is not None else ()))
         if self.refuse:
             raise waiting.SinkRefused("item is closed")
         return "recorded"
@@ -129,10 +129,10 @@ class Real(IsolatedTest):
     def as_bot(self, method, path, body=None, role=None):
         return mm.api(self.conn0, method, path, body, token=self.toks[role or self.asker])
 
-    def ask(self, title="deploy now?", channel="dm", to="", blocking=False, ttl=None, sink=""):
+    def ask(self, title="deploy now?", channel="dm", to="", blocking=False, ttl=None, sink="", ref=""):
         out = postmod.Poster(self.asker, via="it", warn=lambda m: None).ask(
             {"context": "", "parts": [{"title": title, "text": "", "options": ["yes", "no"]}]},
-            channel=channel, to=to, blocking=blocking, ttl=ttl, sink=sink)
+            channel=channel, to=to, blocking=blocking, ttl=ttl, sink=sink, ref=ref)
         pid = out[0].split("post ")[1].rstrip(")")
         q = out[1].split()[1]
         return q, pid
@@ -147,6 +147,9 @@ class Real(IsolatedTest):
         props[key] = value
         self.as_bot("PUT", f"/posts/{pid}/patch", {"props": props})
         return self.post(pid)
+
+    def dm_id(self):
+        return self.as_bot("POST", "/channels/direct", [self.bot_ids[self.asker], IT["AIMOST_IT_USER_ID_OWNER"]])["id"]
 
     def events(self, role=None):
         return [e for _, e in inbox.Inbox(role or self.asker).unread(ack=True)]
@@ -405,6 +408,42 @@ class Real(IsolatedTest):
         # the sink's own open questions get their own section
         rows = waiting.waiting_rows(waiting.context(self.conn))
         self.assertIn(("tracker", "tracker:T-7"), [(r["section"], r["key"]) for r in rows])
+
+    def test_sink_gets_its_own_question_id(self):
+        sink = Sink()
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
+        q, pid = self.ask("close T-3?", sink="tracker", ref="T-3")
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
+                                                   "at": int(time.time() * 1000)}})
+        waiting.on_post(self.conn, p)
+        self.assertEqual(sink.calls, [(q, 1, 1, "close T-3?", "T-3")])
+        with self.assertRaises(postmod.PostError):
+            self.ask("x?", sink="nope")
+        with self.assertRaises(postmod.PostError):
+            self.ask("x?", sink="tracker", ref="two words")
+
+    def test_a_question_an_earlier_version_posted_is_answered_through_the_sink_that_claims_it(self):
+        sink = Sink()
+        sink.claims = lambda q: q.startswith("T-")
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
+        spec = {"context": "", "parts": [{"title": "close T-4?", "text": "", "options": ["yes", "no"]}]}
+        p = self.as_bot("POST", "/posts", {"channel_id": self.dm_id(), "message": "close T-4?",
+                                           "props": {"aimost_question": "T-4", "aimost_spec": spec, "agent": self.asker}})
+        at = int(time.time() * 1000)
+        p = self.mark(p["id"], "aimost_answers", {"1": {"option": 2, "by": "colleague",
+                                                       "user_id": IT["AIMOST_IT_USER_ID_COLLEAGUE"], "at": at}})
+        waiting.on_post(self.conn, p)
+        self.assertEqual(sink.calls, [], "only the owner answers a sink question")
+        p = self.mark(p["id"], "aimost_answers", {"1": {"option": 2, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
+                                                       "at": at + 1}})
+        waiting.on_post(self.conn, p)
+        self.assertEqual(sink.calls, [("T-4", 1, 2, "close T-4?", "T-4")])
+        self.assertEqual(self.events()[0]["text"], "answer to T-4 item 1 «close T-4?» → tracker: recorded")
+        del sink.claims
+        p = self.mark(p["id"], "aimost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
+                                                       "at": at + 2}})
+        waiting.on_post(self.conn, p)
+        self.assertEqual(len(sink.calls), 1, "nobody claims it — not answered")
 
     def test_sink_refusal_is_posted(self):
         plugins.ANSWER_SINKS["tracker"] = ("gitlab", Sink(refuse=True))

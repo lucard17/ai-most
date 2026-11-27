@@ -27,7 +27,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import askstore, connections, inbox, mattermost, paths, questions, textcheck
+from . import askstore, connections, inbox, mattermost, paths, questions, textcheck, plugins
 from .names import P
 
 
@@ -327,9 +327,14 @@ class Poster:
     # ── a question ─────────────────────────────────────────────────────────────────────────────────────────────────
     def ask(self, spec: dict, *, to: str = "", channel: str = "dm", thread: str = "", new_thread: bool = False,
             invite: bool = False, ttl: Optional[float] = None, blocking: bool = False,
-            sink: str = "") -> List[str]:
-        """A question with buttons; its answer comes as an ``answer`` event (or to the answer sink ``sink``)."""
+            sink: str = "", ref: str = "") -> List[str]:
+        """A question with buttons; its answer comes as an ``answer`` event (or to the answer sink ``sink``, with ``ref`` —
+        the question's id on the sink's side)."""
         spec = questions.check(questions.norm_rec(spec))
+        if sink and plugins.sink(self.conn, sink) is None:
+            raise PostError(f"--sink {sink!r}: no such answer sink on connection {self.conn['NAME']} (`aimost plugins`)")
+        if ref and (not sink or len(ref) > 200 or any(c.isspace() for c in ref)):
+            raise PostError(f"--ref {ref!r}: one word, with --sink")
         if ttl is not None and not ttl > 0:
             raise PostError(f"--ttl {ttl!r}: hours, a number above zero")
         where = self.resolve(channel, thread, new_thread)
@@ -345,6 +350,8 @@ class Poster:
         spec["discuss"] = ctype not in ("D", "G")
         if sink:
             spec["sink"] = sink
+        if ref:
+            spec["ref"] = ref
         d = self.check(textcheck.Draft("", ask=spec, to=spec["to"], channel_id=cid, invite=invite, layout=True))
         spec = d.ask
         if self.sig:

@@ -54,6 +54,14 @@ SHALL get their own section in "Waiting for you".
 - **THEN** the answer does not count, nothing is passed to the sink
 Test: `tests/test_waiting.py` (Real.test_sink_gets_only_the_owners_answer, Real.test_sink_refusal_is_posted)
 
+#### Scenario: the sink's own question id; questions an earlier version posted
+- **WHEN** a role asks with `aimost post --ask … --sink <key> --ref <id>`, or the owner answers a question an earlier
+  bridge version posted with the sink side's own id (no `ask-` id)
+- **THEN** the sink gets the answer with `ref=<id>`; an old question goes to the sink whose `claims(id)` is true, and to
+  none when no sink claims it
+Test: `tests/test_waiting.py` (Real.test_sink_gets_its_own_question_id,
+Real.test_a_question_an_earlier_version_posted_is_answered_through_the_sink_that_claims_it)
+
 ### Requirement: Text checks form a pipeline
 Outgoing text SHALL pass the built-in checks and then enabled `text_check` plugins in a fixed order; the first refusal stops
 the post with its exit code (plugins use codes 20–39) and hint. A check MAY rewrite text (e.g. expand a reference into a

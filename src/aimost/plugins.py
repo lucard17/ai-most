@@ -39,7 +39,9 @@ BUILTIN = {"aimost_gitlab": "gitlab"}   # module → plugin name
 OPTIONAL = {"aimost_health": "health"}  # shipped, off unless listed (PLUGINS / AIMOST_PLUGINS)
 KINDS = ("transport", "source", "delivery", "command", "answer_sink", "text_check", "admission")
 
-# answer sinks: key → (plugin name, sink). A sink is an object with ``answer(conn, q, part, answer, title) -> str`` (the
+# answer sinks: key → (plugin name, sink). A sink is an object with ``answer(conn, q, part, answer, title[, ref]) -> str``
+# (``ref`` — the question's id on the sink's side, given with ``aimost post --ask … --sink <key> --ref <id>``; optional
+# ``claims(q) -> bool`` — question ids of posts an earlier bridge version wrote for this side, answered through it) (the
 # result reported to the asking session; raise ``SinkRefused`` to refuse) and optionally ``rows(conn) -> [row]`` — its
 # own open questions to the owner (row: key, title, at, link, blocking). Read by ``waiting``.
 ANSWER_SINKS: Dict[str, tuple] = {}

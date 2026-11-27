@@ -91,7 +91,8 @@ class Args(unittest.TestCase):
 class Offline(IsolatedTest):
     def test_usage_errors_before_network(self):
         for args, code in ((["--blocking", "x"], 2), (["--ttl", "0", "--ask", "Q?", "a", "b"], 2),
-                           (["--ask", "Q?", "a"], 2), (["--ask", "x" * 301, "a", "b"], 4), (["x"], 2)):
+                           (["--ask", "Q?", "a"], 2), (["--ask", "x" * 301, "a", "b"], 4), (["x"], 2),
+                           (["--sink", "plan", "x"], 2), (["--ref", "Q-1", "--ask", "Q?", "a", "b"], 2)):
             r = self.aimost("post", *args, env={"AIMOST_ROLE": "nobody" if args != ["x"] else ""})
             self.assertEqual(r.returncode, code, (args, r.stderr))
 

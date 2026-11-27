@@ -5,6 +5,8 @@
   aimost post [--via …] [--channel …|--thread …] --ask "<question>" "<option>"… [--rec N]
   aimost post [--via …] [--channel …|--thread …] --ask <spec>.json
       [--to <login>[,<login>…]] [--ttl <hours>] [--blocking] — flags may come before or after --ask
+      [--sink <key> [--ref <id>]] — the owner's answer goes to a plugin's answer sink (``aimost plugins``), with the
+      id of the question on its side
   aimost post [--via …] --channel <name> --pin <key> "<text>"|--file <doc>.md
   aimost post [--via …] --edit <post_id> "<new text>"
   aimost post [--via …] --cancel <ask-id|post_id> "<why>"
@@ -30,7 +32,8 @@ from typing import List
 
 from . import post, questions
 
-VALUED = ("--via", "--channel", "--thread", "--file", "--edit", "--to", "--pin", "--cancel", "--ttl", "--conclude")
+VALUED = ("--via", "--channel", "--thread", "--file", "--edit", "--to", "--pin", "--cancel", "--ttl", "--conclude", "--sink",
+          "--ref")
 FLAGS = ("--plain", "--new-thread", "--attach", "--invite", "--open-asks", "--blocking")
 
 
@@ -94,6 +97,10 @@ def main(argv: List[str]) -> int:
             return die("--open-asks — no text or files")
         if "blocking" in flags and not is_ask:
             return die("--blocking — only with --ask: a question without whose answer the work stands")
+        if ("sink" in opts or "ref" in opts) and not is_ask:
+            return die("--sink / --ref — only with --ask")
+        if "ref" in opts and "sink" not in opts:
+            return die("--ref <id> — only with --sink <key>: the id belongs to the sink's side")
         ttl = None
         if "ttl" in opts:
             if not is_ask:
@@ -127,7 +134,7 @@ def main(argv: List[str]) -> int:
                 out = p.edit(opts["edit"], a[0], plain="plain" in flags)
             elif is_ask:
                 out = p.ask(spec, to=opts.get("to", ""), invite="invite" in flags, ttl=ttl,
-                            blocking="blocking" in flags, **where)
+                            blocking="blocking" in flags, sink=opts.get("sink", ""), ref=opts.get("ref", ""), **where)
             else:
                 out = p.send(a[0] if a else "", files=files, attach="attach" in flags, invite="invite" in flags,
                              plain="plain" in flags, pin=opts.get("pin", ""), **where)

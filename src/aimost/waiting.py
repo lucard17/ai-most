@@ -136,8 +136,15 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     q = str(props.get(P("question")) or "")
     asker = props.get("agent")
     spec = props.get(P("ask")) or {}
-    if not q.startswith("ask-") or not asker:
+    if not asker:
         return
+    if not q.startswith("ask-"):
+        # a question an earlier bridge version posted for a plugin's side (its id, the spec under ``spec``): answered
+        # through the sink that claims the id
+        key = next((k for k, s in plugins.sinks(ctx.c).items() if getattr(s, "claims", None) and s.claims(q)), "")
+        if not key:
+            return
+        spec = dict(props.get(P("spec")) or {}, sink=key, ref=q)
     sink = spec.get("sink") or ""
     allowed = {ctx.owner} if sink else (ctx.owner_ids(asker) | ctx.ids_of(spec.get("to")))
     rec = askstore.asks(asker).get(q)
@@ -161,7 +168,7 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
         by = ctx.user(a["user_id"])["username"]
         thread = p.get("root_id") or p["id"]
         if sink:
-            text = _to_sink(ctx, sink, q, n, a, title, p, thread, who)
+            text = _to_sink(ctx, sink, q, n, a, title, p, thread, who, spec.get("ref") or "")
             if text is None:
                 continue
             role = "owner"
@@ -177,12 +184,13 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
 
 
 def _to_sink(ctx: Ctx, sink: str, q: str, part: int, a: dict, title: str, p: dict, thread: str,
-             who: Optional[str]) -> Optional[str]:
+             who: Optional[str], ref: str = "") -> Optional[str]:
     s = plugins.sink(ctx.c, sink)
     try:
         if s is None:
             raise SinkRefused("not installed")
-        result = s.answer(ctx.c, q, part, a, title)
+        # ``ref`` — the question's id on the sink's side, passed only when there is one: sinks without it keep working
+        result = s.answer(ctx.c, q, part, a, title, **({"ref": ref} if ref else {}))
     except Exception as e:
         msg = str(e)[:300] or type(e).__name__
         log(f"[{ctx.name}] {q}: {sink} refused: {msg}")
