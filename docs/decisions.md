@@ -127,6 +127,21 @@ The status spec first put the heartbeat into bot user props, but a bot may not p
 server). The bridge writes the bot's own preference `lmost_heartbeat/state` (JSON: seen, role, state, unread, last turn);
 the edge's bot (a system admin) reads it, other users cannot. The edge interprets its age ("bridge offline since …").
 
+## D14. One registry per extension point; the bridge, the waiting list and plugins meet there — 2026-11-27
+
+Phase 3 was ported in parallel: the bridge (`link`), "Waiting for you" (`waiting`), plugins, packaging. Where two of them
+needed the same thing, one copy was kept:
+- answer sinks — `plugins.ANSWER_SINKS` (a plugin registers `answer(...)` and optional `rows(...)`); `waiting` reads the
+  sinks that are on for the connection;
+- the per-connection context (bots, ids, owner, co-owners) — `linkctx`, used by `link` and `waiting`;
+- answers from the edge's marks — only `waiting.on_post`; the bridge passes own-bot posts to it;
+- 👀 on ack — `receipts`, registered in `inbox` (`inbox` cannot import `link`: cycle);
+- background units of plugins — `reg.service(...)` → `install.SERVICES`, installed by `lmost setup`.
+
+Routing follows the upstream oracle where the spec text differed: in someone else's thread a person who called the role
+without an @ is not delivered. `CHANNEL_OWNERS` defaults to `top <channel> -> role`. The workspace-specific listener
+registry was not ported.
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.
