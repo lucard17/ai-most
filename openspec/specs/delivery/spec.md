@@ -14,13 +14,14 @@ agent session (the name set by `/rename`), one bot per role; **owner** — the p
 ### Requirement: A post reaches the role's inbox
 The bridge SHALL put a post into a role's inbox if it is in a direct message with the role's bot, mentions the bot, is in a
 thread where the bot has posted, or is a top-level post without mentions in a channel the role owns
-(`CHANNEL_OWNER=<channel>:<role>`). A post by another bot MUST be delivered only when it mentions this role's bot directly,
+(`CHANNEL_OWNERS=<channel>:<role>`). A post by another bot MUST be delivered only when it mentions this role's bot directly,
 and only with sender role `peer`. The bot's own posts, system posts, webhook posts and progress posts MUST NOT become events.
 
 #### Scenario: a person replies in the bot's thread
 - **WHEN** the role's bot has posted in a thread, and a person replies in that thread
 - **THEN** the role's inbox gets a `message` event, and the post gets the 📬 reaction
-Oracle: `chat-link.test.sh`
+Oracle: `chat-link.test.sh`. Test: `tests/test_link.py` (Rules.test_dm_and_mention, Real.test_dm_mention_thread_and_receipt,
+Real.test_foreign_bot_only_by_mention_as_peer)
 
 ### Requirement: A channel owner gets talk addressed to the role, not talk between people
 A mention of the connection owner or `@here` MUST NOT stop a top-level post from reaching the channel's owner role; a post
@@ -29,7 +30,7 @@ that mentions another person MUST NOT be given to the channel owner role — tha
 #### Scenario: "@owner, can you look?" in the role's channel
 - **WHEN** in a channel owned by a role a post mentions only the connection owner
 - **THEN** the post is in the channel owner role's inbox
-Oracle: `chat-link.test.sh`
+Oracle: `chat-link.test.sh`. Test: `tests/test_link.py` (Rules.test_owned_channel_top_level)
 
 ### Requirement: In someone else's thread — only posts that mention the role
 In its own thread and in threads of a channel it owns, a role SHALL get every post; in someone else's thread where the
@@ -42,15 +43,17 @@ MUST NOT get every post of every thread it once posted in. Manual override: `aim
 Test: `tests/test_link.py` (Rules.test_own_thread_in_full_foreign_only_by_mention)
 
 ### Requirement: "Not delivered" only where an agent was expected
-⚠️ on an owner's post SHALL be set only when the post reached no inbox where an agent was expected (direct message, owned
-channel, top level of a channel matching `AGENT_CHANNELS`, a thread where a bot posted), and only after a full pass over all
-bots. A mistyped `@name` gets ⚠️ and a "not delivered" reply in the thread. ⚠️ MUST NOT appear on replies in people's
-threads or on a post delivered by another bot.
+⚠️ on an owner's post SHALL be set only when the post reached no inbox where an agent was expected — a direct message
+with a bot, or the top level of a channel a role owns (`CHANNEL_OWNERS`, a `top` route) — and only after a full pass over
+all bots that ended after the post was seen. A post without mentions in a thread or in a channel no role owns is people's
+talk, not a miss. A mistyped `@name` gets ⚠️ and a "not delivered" reply in the thread, wherever it is. ⚠️ MUST NOT appear
+on a post delivered by another bot.
 
 #### Scenario: an owner's post reached nobody
 - **WHEN** an owner's post in an owned channel reached no inbox, or mentions a non-existent `@name`
 - **THEN** the post gets ⚠️; for a typo, "not delivered" in the thread
-Oracle: `chat-link.test.sh`
+Oracle: `chat-link.test.sh`. Test: `tests/test_link.py` (Rules.test_where_an_agent_is_expected,
+Rules.test_unrouted_waits_for_a_full_pass, Real.test_typo_gets_a_warning)
 
 ### Requirement: A new post is not lost after a reaction
 The bridge SHALL decide whether a post is new by its creation time against the previous pass, not by `update_at`: a
@@ -59,7 +62,7 @@ reaction by another bot MUST NOT count as an edit.
 #### Scenario: two bots in one channel
 - **WHEN** the first bot has put 📬 on a post, and the second bot passes the channel
 - **THEN** the post mentioning the second bot is in its inbox
-Oracle: `chat-link-multibot.test.sh`
+Oracle: `chat-link-multibot.test.sh`. Test: `tests/test_link.py` (Real.test_two_bots_one_post)
 
 ### Requirement: The bridge survives a restart of the chat server
 A connection whose chat server was down when the bridge started SHALL be retried, not dropped until a manual restart.
@@ -67,7 +70,7 @@ A connection whose chat server was down when the bridge started SHALL be retried
 #### Scenario: the chat server comes up after the bridge
 - **WHEN** the chat server is unreachable at bridge start and comes up later
 - **THEN** the bridge connects without a restart
-Oracle: `chat-link-restart.test.sh`
+Oracle: `chat-link-restart.test.sh`. Test: `tests/test_link.py` (Restart)
 
 ### Requirement: Agent loop guard
 After six agent posts in a row in a thread without a person, the bridge MUST NOT deliver further posts of that thread and
@@ -78,12 +81,12 @@ Endless bot-to-bot talk MUST NOT wake roles.
 #### Scenario: bots answer each other
 - **WHEN** the seventh bot post in a row without a person appears in a thread
 - **THEN** no delivery, "⏸ waiting for a person" in the thread
-Oracle: `chat-loop-free.test.sh`
+Oracle: `chat-loop-free.test.sh`. Test: `tests/test_link.py` (Rules.test_loop_guard)
 
 #### Scenario: an agents' work channel
 - **WHEN** the same happens in a thread of a channel from `LOOP_FREE_CHANNELS`
 - **THEN** all posts are delivered, no "⏸ waiting for a person"
-Oracle: `chat-loop-free.test.sh`
+Oracle: `chat-loop-free.test.sh`. Test: `tests/test_link.py` (Rules.test_loop_guard)
 
 ### Requirement: Urgent mid-turn, the rest at the end of the turn
 The delivery hook SHALL hand over answers to questions, messages and the owner's reactions after the next tool call, and
@@ -230,4 +233,4 @@ The owner's reaction on a role's post SHALL reach the role as a `reaction` event
 #### Scenario: the owner puts 👍
 - **WHEN** the owner puts 👍 on a role's post
 - **THEN** the role's inbox gets a `reaction` event "yes"
-Oracle: `chat-link.test.sh`
+Oracle: `chat-link.test.sh`. Test: `tests/test_link.py` (Real.test_owner_reaction_is_an_event)

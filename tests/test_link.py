@@ -88,6 +88,14 @@ class Rules(IsolatedTest):
         self.assertIsNone(self.rel("anyone?", root="", ch=self.CH, c=c), "another channel")
         self.assertIsNone(self.rel("status", root="", ch=ops, c=c, user="BOT"), "the role's own bot")
 
+    def test_where_an_agent_is_expected(self):
+        x = fake_link({"CHANNEL_OWNERS": "ops:deployer"})
+        ops, dm = {"name": "ops", "type": "O"}, {"name": "a__b", "type": "D"}
+        self.assertTrue(x.expects_agent({"root_id": ""}, ops), "top level of an owned channel")
+        self.assertTrue(x.expects_agent({"root_id": "R"}, dm), "a direct message, even in a thread")
+        self.assertFalse(x.expects_agent({"root_id": "R"}, ops), "a thread: people's talk unless someone is mentioned")
+        self.assertFalse(x.expects_agent({"root_id": ""}, self.CH), "a channel no role owns")
+
     def test_representative_rule_from_file(self):
         x = fake_link()
         x.routes = link.parse_routes("mention @owner review -> deployer\nmention @h2 * -> deployer\n")

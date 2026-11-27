@@ -37,7 +37,7 @@ change the bots' visible status by itself; the edge interprets its age.
 #### Scenario: the machine goes to sleep
 - **WHEN** the bridge stops at 14:00
 - **THEN** `seen` stays 14:00; the edge reports "bridge offline since 14:00" from 14:03 on
-Test: `test_commands.StatusWho`, `test_commands.Heartbeat`, `test_edge_it.RealEdge.test_slash_commands_through_mattermost`
+Test: `test_commands.StatusWho`, `test_commands.Heartbeat`, `test_link.Real.test_heartbeat`, `test_edge_it.RealEdge.test_slash_commands_through_mattermost`
 (the writer side lands with the bridge)
 
 ### Requirement: Receipts by reactions
@@ -47,7 +47,8 @@ delivered. A failing receipt MUST NOT break delivery.
 #### Scenario: a post delivered and read
 - **WHEN** the post is in the inbox, and the session has read it
 - **THEN** the post has 📬 and 👀 from the addressee's bot
-Oracle: `chat-link-multibot.test.sh`
+Oracle: `chat-link-multibot.test.sh`. Test: `tests/test_link.py` (Real.test_dm_mention_thread_and_receipt,
+Real.test_cli_mode_receipt_and_read_receipt)
 
 ### Requirement: One bot per role
 Every role SHALL have its own bot and SHALL post with its token: a person's bot is `<OWNER>-<role>` or a short prefix of the
