@@ -30,6 +30,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if name not in commands():
         print(f"lmost: unknown command {name!r} (commands: {', '.join(commands())})", file=sys.stderr)
         return 2
+    from . import plugins
+    plugins.load()  # every command sees the same extension points (a broken plugin is reported and skipped)
     return importlib.import_module(f"lmost.cli_{name.replace('-', '_')}").main(argv[1:])
 
 

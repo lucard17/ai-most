@@ -21,21 +21,24 @@ text rules — lives in plugins, so the core stays usable by anyone. One pattern
 ### Requirement: Plugins are discovered, listed and switched per connection
 The core SHALL load plugins from entry points and the local plugins directory; `lmost plugins` SHALL list them with kind,
 version and source. A plugin SHALL be enabled per connection (`PLUGINS=<name>[,<name>]`); built-ins are enabled unless
-listed in `PLUGINS_OFF`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped.
+listed in `PLUGINS_OFF`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
+stays registered. Callbacks that receive a connection run only where the plugin is enabled; slash commands, read rules
+and `who` sources are installed when the plugin is enabled on at least one connection.
 
 #### Scenario: a broken plugin
 - **WHEN** a plugin raises on import
 - **THEN** the bridge starts, `lmost plugins` shows it as failed with the error type
-NEW
+Test: `tests/test_plugins.py` (Discovery)
 
 ### Requirement: Plugins do not bypass authority
 Plugins SHALL receive the sender role resolved by the core and MUST NOT be able to raise it. Events written by a `source`
-SHALL carry the sender role the core assigns to that source (`peer` unless the connection marks the source as `owner`).
+SHALL carry the sender role the core assigns to that source (`peer` unless the connection lists the source in
+`SOURCES_OWNER`).
 
 #### Scenario: a source tries to write an owner event
 - **WHEN** a source plugin writes an event with sender role `owner`, and the connection does not trust it
 - **THEN** the event is stored as `peer`
-NEW
+Test: `tests/test_plugins.py` (SourceAuthority)
 
 ### Requirement: Answer sinks
 An `answer_sink` plugin SHALL be able to post a question through the core's question mechanism with a sink key; a button
@@ -57,7 +60,7 @@ link); a check that cannot reach its backend SHALL let the text through unchange
 #### Scenario: a plugin refuses
 - **WHEN** a text check plugin refuses a post with code 21
 - **THEN** exit code 21 and the plugin's hint, nothing is posted
-NEW
+Test: `tests/test_plugins.py` (Switching, RefusalThroughPost)
 
 ### Requirement: Delivery is replaceable
 Delivery to a session and waking SHALL go through the `delivery` interface; Claude Code hooks are the default
