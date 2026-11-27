@@ -33,7 +33,7 @@ owner's key, authority checked, then a bridge handler or a ``command`` event (co
 started the thread (``props.agent`` of the root), and to nobody else.
 
 Extension points: ``TICK_HOOKS`` (after each pass of a connection), ``POST_HOOKS`` (each own-bot post with trusted props),
-``BRIDGE_COMMANDS``; answer sinks — ``waiting.ANSWER_SINKS``.
+``BRIDGE_COMMANDS``; answer sinks — ``plugins.ANSWER_SINKS``.
 
 State — ``<state>/link/``: ``<conn>.<role>.json`` (since, seen, reactions),
 ``<conn>.delivered.json``, ``<conn>.unrouted.json``, ``<conn>.commands.json``, ``<conn>.handles.json``.
