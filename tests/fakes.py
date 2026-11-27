@@ -45,7 +45,7 @@ class SessionTest(IsolatedTest):
         recs = [{"type": "custom-title", "customTitle": name, "sessionId": sid}]
         if cwd:
             recs.append({"type": "user", "cwd": cwd})
-        self.transcript(sid).write_text("".join(json.dumps(r) + "\n" for r in recs))
+        self.transcript(sid).write_text("".join(json.dumps(r, separators=(",", ":")) + "\n" for r in recs))
         return sid
 
     def transcript(self, sid: str) -> Path:
@@ -54,7 +54,7 @@ class SessionTest(IsolatedTest):
     def append(self, sid: str, *recs: dict) -> None:
         with open(self.transcript(sid), "a") as f:
             for r in recs:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+                f.write(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n")
 
     @staticmethod
     def user(kind: str, text: str = "x", offset_s: float = 0, uid: str = "") -> dict:
