@@ -1,0 +1,40 @@
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  unit:
+    name: unit (python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: unit tests (no Mattermost)
+        run: LMOST_IT=0 python -m unittest discover -s tests -t tests -v
+  integration:
+    name: integration (disposable Mattermost)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: start Mattermost
+        run: tests/integration/up.sh
+      - name: all tests
+        run: python -m unittest discover -s tests -t tests -v
+      - name: server logs on failure
+        if: failure()
+        run: docker compose -f tests/integration/compose.yaml logs --tail 200 app
+      - name: stop
+        if: always()
+        run: tests/integration/down.sh
