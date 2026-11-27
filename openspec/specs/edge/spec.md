@@ -52,3 +52,14 @@ code keeps serving).
 - **THEN** the owner gets one direct message: the edge is stale, restart it
 Edge side (`GET /version`, re-exec): `test_edge.Http`, `test_edge.Reload` (oracle `chat-edge-reload.test.sh`); the
 bridge warning — NEW, lands with the bridge.
+
+### Requirement: One props prefix per chat server
+The names ai-most leaves in the chat (post props, preference categories) SHALL be `<prefix>_<name>` with the prefix
+`aimost` unless set (`AIMOST_PROPS_PREFIX`, or `<config>/props-prefix` on the owner's machine), so that a server whose
+posts an earlier bridge version wrote under another prefix keeps working. Behaviour MUST NOT depend on the prefix. The
+edge SHALL report its prefix in `GET /version`; a bad prefix SHALL stop the process before it touches the chat.
+
+#### Scenario: a team moving from the earlier bridge
+- **WHEN** the bridge and the edge run with prefix `chat`
+- **THEN** buttons of posts the earlier bridge wrote are answered, and every behaviour suite passes with `chat_*` names
+Test: `tests/test_names.py`

@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
 from . import askstore, connections, inbox, mattermost, paths, questions, textcheck
+from .names import P
 
 
 class PostError(Exception):
@@ -308,11 +309,11 @@ class Poster:
     def _pin(self, post: dict, key: str) -> List[str]:
         """One pinned post per key and channel, edited in place."""
         post.pop("root_id", None)
-        post["props"]["aimost_pin"] = key
+        post["props"][P("pin")] = key
         cid = post["channel_id"]
         pinned = self.api("GET", f"/channels/{cid}/pinned") or {}
         mine = [x for x in (pinned.get("posts") or {}).values()
-                if x.get("user_id") == self.me["id"] and (x.get("props") or {}).get("aimost_pin") == key]
+                if x.get("user_id") == self.me["id"] and (x.get("props") or {}).get(P("pin")) == key]
         if mine:
             old = max(mine, key=lambda x: x["create_at"])
             if old.get("message") == post.get("message"):
@@ -352,7 +353,7 @@ class Poster:
         msg, atts = questions.render(qid, spec, {}, self.role, questions.client_auth(self.conn),
                                      questions.action_url(self.conn))
         post = {"channel_id": cid, "message": msg,
-                "props": {**self._props(), "attachments": atts, "aimost_question": qid, "aimost_ask": spec}}
+                "props": {**self._props(), "attachments": atts, P("question"): qid, P("ask"): spec}}
         if where["thread"]:
             post["root_id"] = where["thread"]
         p = self._as_member(lambda: self.channel_name(cid), lambda: self.api("POST", "/posts", post))
@@ -387,12 +388,13 @@ class Poster:
             raise PostError(f"post {pid} was not written by bot {self.role}" +
                             (f" (relay {self.relay} posts for many sessions — only this one's question)" if self.relay
                              else "") + " — only your own question can be cancelled", 3)
-        q = (old.get("props") or {}).get("aimost_question") or ""
+        q = (old.get("props") or {}).get(P("question")) or ""
         if not q.startswith("ask-") or (rec and q != target):
             raise PostError(f"post {pid} is not an `aimost post --ask` question")
         st = askstore.ask_state(old)
         if st == "cancelled":
-            return [f"question {q} already cancelled ({(old['props']['aimost_cancelled'] or {}).get('why', '')})"]
+            why = (old["props"][P("cancelled")] or {}).get("why", "")
+            return [f"question {q} already cancelled ({why})"]
         if st == "answered":
             askstore.ask_record(self.role, {"q": q, "state": "answered"})
             raise PostError(f"question {q} is already fully answered — nothing to cancel")
@@ -400,7 +402,7 @@ class Poster:
         patch = questions.cancelled_patch(old, why, by=self.role)
         self.api("PUT", f"/posts/{pid}/patch", patch)
         askstore.ask_record(self.role, {"q": q, "post": pid, "state": "cancelled",
-                                        "cancelled_at": patch["props"]["aimost_cancelled"]["at"], "why": why})
+                                        "cancelled_at": patch["props"][P("cancelled")]["at"], "why": why})
         return [f"question {q} cancelled ({self.conn['NAME']}, post {pid}): {why}"]
 
     def edit(self, post_id: str, text: str, plain: bool = False) -> List[str]:

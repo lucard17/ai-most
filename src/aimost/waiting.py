@@ -34,9 +34,10 @@ from typing import Callable, Dict, List, Optional
 
 from . import askstore, connections, inbox, mattermost, paths, plugins, questions
 from .linkctx import Ctx, _ctx, context  # noqa: F401  (the per-connection context lives with the bridge)
+from .names import P
 
-MARK_PROPS = ("aimost_answers", "aimost_waiting_drop", "aimost_waiting_snooze", "aimost_discuss")
-PIN_PROP = "aimost_waiting"
+MARK_PROPS = (P("answers"), P("waiting_drop"), P("waiting_snooze"), P("discuss"))
+PIN_PROP = P("waiting")
 CHAT_SECTION = "Chat questions"
 READBACK = (f"\n{inbox.FREE_TEXT_MARK} — before acting, retell it in the thread by its consequences: what changes, what "
             "does not, an example; with buttons “✅ right” / “✏️ not so” (`aimost post --thread <thread> --to <who> "
@@ -95,7 +96,7 @@ def put_event(to_role: str, text: str, **kw) -> None:
 def cancel_in_place(ctx: Ctx, token: str, post: dict, why: str, by: str) -> int:
     patch = questions.cancelled_patch(post, why, by=by)
     mattermost.api(ctx.c, "PUT", f"/posts/{post['id']}/patch", patch, token=token)
-    return patch["props"]["aimost_cancelled"]["at"]
+    return patch["props"][P("cancelled")]["at"]
 
 
 # ── marks of the edge on a post ────────────────────────────────────────────────────────────────────────────────────────
@@ -108,8 +109,8 @@ def on_post(conn: dict, post: dict, who: Optional[str] = None) -> None:
     if not ctx.bots or post.get("user_id") not in ctx.ids.values():
         return
     who = who or next((n for n, i in ctx.ids.items() if i == post.get("user_id")), None)
-    for key, fn in (("aimost_answers", on_answers), ("aimost_waiting_drop", on_waiting_drop),
-                    ("aimost_waiting_snooze", on_waiting_snooze), ("aimost_discuss", on_discuss)):
+    for key, fn in ((P("answers"), on_answers), (P("waiting_drop"), on_waiting_drop),
+                    (P("waiting_snooze"), on_waiting_snooze), (P("discuss"), on_discuss)):
         if props.get(key):
             try:
                 fn(ctx, post, who)
@@ -132,20 +133,20 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     those allowed — the addressees and the asking role's owners; a sink question — only the owner. An answer given after
     the question was cancelled does not count. The answer goes to the asking session as an ``answer`` event."""
     props = p.get("props") or {}
-    q = str(props.get("aimost_question") or "")
+    q = str(props.get(P("question")) or "")
     asker = props.get("agent")
-    spec = props.get("aimost_ask") or {}
+    spec = props.get(P("ask")) or {}
     if not q.startswith("ask-") or not asker:
         return
     sink = spec.get("sink") or ""
     allowed = {ctx.owner} if sink else (ctx.owner_ids(asker) | ctx.ids_of(spec.get("to")))
     rec = askstore.asks(asker).get(q)
-    gone = [((props.get("aimost_cancelled") or {}).get("at")), (rec or {}).get("cancelled_at")]
+    gone = [((props.get(P("cancelled")) or {}).get("at")), (rec or {}).get("cancelled_at")]
     gone = min([x for x in gone if x], default=None)
     ap = ctx.state("answered")
     answered = set(_jload(ap, []))
     parts = spec.get("parts") or []
-    for part, a in sorted((props.get("aimost_answers") or {}).items()):
+    for part, a in sorted((props.get(P("answers")) or {}).items()):
         k = f"{p['id']}:{part}:{a.get('at')}"
         if k in answered or a.get("user_id") not in allowed:
             continue
@@ -200,7 +201,7 @@ def on_waiting_drop(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     props = p.get("props") or {}
     if not props.get(PIN_PROP):
         return
-    for q, m in sorted((props.get("aimost_waiting_drop") or {}).items()):
+    for q, m in sorted((props.get(P("waiting_drop")) or {}).items()):
         asker = m.get("asker") or ""
         if m.get("user_id") != ctx.owner or not asker:
             continue
@@ -229,7 +230,7 @@ def on_waiting_snooze(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     7d | forever | back:<key>): the owner's press goes into the snooze file once (its ``at`` is remembered), the asking
     session gets ``snoozed``."""
     props = p.get("props") or {}
-    marks = props.get("aimost_waiting_snooze") or {}
+    marks = props.get(P("waiting_snooze")) or {}
     if not props.get(PIN_PROP) or not marks:
         return
     with SNOOZE_LOCK:
@@ -280,7 +281,7 @@ def on_discuss(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     thread "Discussion: …" in their DM with the session's bot, a line in the original thread, a ``discuss`` event. One
     thread per person and post."""
     props = p.get("props") or {}
-    q, asker, spec = str(props.get("aimost_question") or ""), props.get("agent"), props.get("aimost_ask") or {}
+    q, asker, spec = str(props.get(P("question")) or ""), props.get("agent"), props.get(P("ask")) or {}
     if not q.startswith("ask-") or not asker or not connections.admitted(ctx.c, asker):
         return
     tok = connections.bot(ctx.c, asker)
@@ -293,7 +294,7 @@ def on_discuss(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     def api(method, path, body=None):
         return mattermost.api(ctx.c, method, path, body, token=tok)
 
-    for uid in sorted(props.get("aimost_discuss") or {}):
+    for uid in sorted(props.get(P("discuss")) or {}):
         if uid not in allowed or (p["id"], uid) in done:
             continue
         user = ctx.user(uid)["username"]
@@ -450,7 +451,7 @@ def waiting_update(ctx: Ctx, now: Optional[float] = None, _marks_done: bool = Fa
         try:
             pin = ctx.api("GET", f"/posts/{st['post']}", who=emp)
             pp = pin.get("props") or {}
-            if pp.get("aimost_waiting_drop") or pp.get("aimost_waiting_snooze"):
+            if pp.get(P("waiting_drop")) or pp.get(P("waiting_snooze")):
                 on_waiting_drop(ctx, pin, emp)
                 on_waiting_snooze(ctx, pin, emp)
                 return waiting_update(ctx, now, _marks_done=True)
@@ -510,7 +511,7 @@ def waiting_remind(ctx: Ctx, now: Optional[float] = None) -> None:
         if now - sent.get(r["q"], 0) < every:
             continue
         sent[r["q"]] = now
-        out.append((f"⏰ Waiting for an answer, work stops without it: {line(r)}", {"aimost_remind": r["q"]}))
+        out.append((f"⏰ Waiting for an answer, work stops without it: {line(r)}", {P("remind"): r["q"]}))
     live = {r.get("q") for r in rows}
     st["asks"] = {q: t for q, t in sent.items() if q in live}
     for slot in [x.strip() for x in (ctx.c.get("WAITING_DIGEST_AT", "10:00,18:00") or "").split(",") if x.strip()]:
@@ -530,7 +531,7 @@ def waiting_remind(ctx: Ctx, now: Optional[float] = None) -> None:
         old = sorted(rows, key=lambda x: x["at"])[:3]
         out.append((f"📋 Digest: {len(rows)} waiting, {sum(1 for r in rows if r['blocking'])} of them 🔴. The oldest:\n"
                     + "\n".join(f"{i}. {line(r)}" for i, r in enumerate(old, 1))
-                    + "\n_The whole list — in the pinned “Waiting for you”._", {"aimost_digest": key}))
+                    + "\n_The whole list — in the pinned “Waiting for you”._", {P("digest"): key}))
     try:
         if out:
             ch = ctx.api("POST", "/channels/direct", [ctx.ids[emp], ctx.owner], who=emp)["id"]
@@ -582,14 +583,14 @@ def backfill(conn: dict, days: Optional[float] = None) -> int:
             for pid in r.get("order", []):
                 p = r["posts"][pid]
                 pr = p.get("props") or {}
-                q = str(pr.get("aimost_question") or "")
+                q = str(pr.get(P("question")) or "")
                 if pid in seen or not q.startswith("ask-") or p.get("user_id") != ctx.ids[bot]:
                     continue
                 seen.add(pid)
                 if q in known or p.get("delete_at") or askstore.ask_state(p) != "open" \
                         or (p.get("create_at") or 0) >= start:
                     continue
-                ask = pr.get("aimost_ask") or {}
+                ask = pr.get(P("ask")) or {}
                 who = pr.get("agent") or bot
                 if q in askstore.asks(who):           # recorded meanwhile — the pass takes minutes
                     known.add(q)

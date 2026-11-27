@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import connections, inbox, mattermost, paths, questions
+from .names import P
 
 TTL_S = 900
 ID_RE = re.compile(r"^[0-9a-f]{8}$")
@@ -322,7 +323,7 @@ def request(role: str, spec: dict, via: str = "", channel: str = "", thread: str
             tag += [n for n in names[1:] if ids[n] in wrote]
         msg = " ".join("@" + n for n in tag) + "\n" + msg
     post = {"channel_id": channel_id, "message": msg,
-            "props": {"agent": role, "attachments": atts, "aimost_confirm_request": cid}}
+            "props": {"agent": role, "attachments": atts, P("confirm_request"): cid}}
     if thread:
         post["root_id"] = thread
     pid = api("POST", "/posts", post)["id"]
@@ -330,7 +331,7 @@ def request(role: str, spec: dict, via: str = "", channel: str = "", thread: str
     every = float(os.environ.get("AIMOST_CONFIRM_EVERY_S", "3"))
     deadline = time.time() + timeout
     while time.time() < deadline:
-        done = ((api("GET", f"/posts/{pid}") or {}).get("props") or {}).get("aimost_confirm")
+        done = ((api("GET", f"/posts/{pid}") or {}).get("props") or {}).get(P("confirm"))
         if isinstance(done, dict) and done.get("id") == cid and done.get("user_id") in allowed:
             if done.get("answer") != "yes":
                 raise ConfirmError("❌ declined", 1)
@@ -340,5 +341,5 @@ def request(role: str, spec: dict, via: str = "", channel: str = "", thread: str
             return cid
         time.sleep(every)
     api("PUT", f"/posts/{pid}/patch", {"message": without_rule(msg) + "\n\n⌛ expired without an answer",
-                                       "props": {"agent": role, "attachments": [], "aimost_confirm_request": cid}})
+                                       "props": {"agent": role, "attachments": [], P("confirm_request"): cid}})
     raise ConfirmError("⌛ expired", 2)

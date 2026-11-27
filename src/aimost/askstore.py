@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from . import paths
+from .names import P
 
 
 def asks_dir() -> Path:
@@ -61,10 +62,10 @@ def ask_roles() -> List[str]:
 def ask_state(post: dict) -> str:
     """State of a question post: cancelled | answered (every part) | open."""
     props = post.get("props") or {}
-    if props.get("aimost_cancelled"):
+    if props.get(P("cancelled")):
         return "cancelled"
-    parts = (props.get("aimost_ask") or {}).get("parts")
-    if parts and len(props.get("aimost_answers") or {}) >= len(parts):
+    parts = (props.get(P("ask")) or {}).get("parts")
+    if parts and len(props.get(P("answers")) or {}) >= len(parts):
         return "answered"
     return "open"
 

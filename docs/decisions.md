@@ -177,6 +177,16 @@ fields, a markup guard on posts, a hook against back-tick substitution. Ported a
   watches `gh` pull request and issue text;
 - dropped as workspace-specific: the harness class on a card, the review-closing announcement, the `mr-merge` wrapper.
 
+## D17. The props prefix is a setting — 2026-11-27
+
+Upstream's posts carry `chat_*` props with the same structure ai-most writes as `aimost_*` (the port kept the format; it
+renamed only the prefix). A team moving from upstream has open questions, pins, "Waiting for you" marks and tools of its
+own reading those props. So the prefix is a setting (`names.P`): `AIMOST_PROPS_PREFIX` or `<config>/props-prefix` on the
+owner's machine, `AIMOST_PROPS_PREFIX` for the edge; default `aimost`. One process, one prefix (names end up in module
+constants); the bridge and the edge of a server must agree — the edge reports its prefix in `GET /version`. The single
+name upstream spelled differently (`chat_agents_catalog`) is mapped. Behaviour under another prefix is tested by running
+the behaviour suites again under `chat` (`test_names`).
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

@@ -17,6 +17,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 
 from .textcheck import mentioned
+from .names import P
 
 TITLE_MAX = 300
 CUSTOM = "✍️ own answer"
@@ -168,5 +169,5 @@ def cancelled_patch(post: dict, why: str, by: Optional[str] = None, at: Optional
     at = int(time.time() * 1000) if at is None else at
     props = dict(post.get("props") or {})
     props["attachments"] = [{k: v for k, v in a.items() if k != "actions"} for a in props.get("attachments") or []]
-    props["aimost_cancelled"] = {"why": why, "at": at, **({"by": by} if by else {})}
+    props[P("cancelled")] = {"why": why, "at": at, **({"by": by} if by else {})}
     return {"message": f"⏹ Question cancelled: {why}\n" + (post.get("message") or ""), "props": props}

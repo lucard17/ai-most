@@ -16,8 +16,9 @@ from typing import Callable, Optional
 
 from . import mattermost
 from .connections import Connection
+from .names import P
 
-CATEGORY, NAME = "aimost_heartbeat", "state"
+CATEGORY, NAME = P("heartbeat"), "state"
 STALE_S = 180          # older than 3 minutes — the bridge is offline
 STATES = ("running", "idle", "waiting", "not running")
 

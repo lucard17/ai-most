@@ -34,10 +34,11 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from . import connections, mattermost, paths
+from .names import P
 
 SHOW = 6
 SERVICE_FILES = ("status.json", "waiting.json")
-PROGRESS_PROP = "aimost_progress"
+PROGRESS_PROP = P("progress")
 
 
 def _f(var: str, default: str) -> float:

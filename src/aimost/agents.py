@@ -14,8 +14,9 @@ import re
 from typing import Callable, Dict, List, Optional, Tuple
 
 from .connections import Connection, _split
+from .names import P
 
-MARK = "aimost_agents"
+MARK = P("agents")
 SHARED = "shared"
 DESC_MAX = 180
 
