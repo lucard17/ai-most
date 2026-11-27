@@ -62,9 +62,9 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | chat-delivery (18) | delivery (17) | GitLab events → gitlab-mr; review routing generalised to shared bots + thread routing |
 | chat-authority (8) | authority (7) | tracker answers → extensions: answer sinks |
 | chat-questions (16) | questions (16) | "tracker questions" section → one section per answer sink |
-| chat-status (6) | status (6) | — |
+| chat-status (6) | status (7) | + bridge heartbeat (NEW) |
 | chat-text (7) | text (5) | cold reader → private plugin; MR links → gitlab-mr |
 | chat-edge (3) | edge (4) | server sync → stale-edge warning (NEW); library lookup → packaging; + per-owner keys, keyed slash URLs |
-| — | commands (5) | NEW |
+| — | commands (6) | NEW |
 | — | extensions (5) | NEW |
 | — | gitlab-mr (4) | from delivery + text |

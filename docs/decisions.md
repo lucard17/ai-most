@@ -62,8 +62,10 @@ One pattern — *registry + interface*, plugins found via Python entry points an
 
 Slash command kinds follow where a command can run (Mattermost calls only the edge; the owner's machine is reachable only
 through its outbound connection): `edge` (runs next to the server — `/unfollow`, `/bot-token` already work this way
-upstream), `bridge` (the edge leaves a signed command post in the caller's DM with the bot; the owner's bridge answers it),
-`session` (same post, becomes a `command` event in the role's inbox). **Authority is checked by the core, never by the
+upstream; `/agent status` and `/agent who` too, answered from the bridge heartbeat in bot props, so they work while
+the owner's machine is off), `bridge` (the edge leaves a signed command post in the caller's DM with the bot; the owner's bridge answers it),
+`session` (same post, becomes a `command` event in the role's inbox). A command post older than 10 minutes is not run
+silently: the bridge asks the caller with buttons whether it is still needed (decided 2026-11-27). **Authority is checked by the core, never by the
 command** — a command cannot bypass confirmation or the peer read-only rule. Spec: `openspec/specs/commands`.
 
 ## D7. Order of work — 2026-11-27

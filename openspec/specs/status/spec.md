@@ -27,6 +27,16 @@ go to a shared channel.
 - **THEN** the owner gets one direct message; the same wait is not reported again
 Oracle: `chat-activity.test.sh`
 
+### Requirement: Bridge heartbeat
+The bridge SHALL write a heartbeat at least once a minute into a place the edge can read without the owner's machine (the
+props of each role bot: `lmost_seen` — time, `lmost_state` — running / idle / waiting / not running, unread count, last turn
+time). A missing heartbeat MUST NOT change the bots' visible status by itself; the edge interprets its age.
+
+#### Scenario: the machine goes to sleep
+- **WHEN** the bridge stops at 14:00
+- **THEN** `lmost_seen` stays 14:00; the edge reports "bridge offline since 14:00" from 14:03 on
+NEW
+
 ### Requirement: Receipts by reactions
 The addressee's bot SHALL put 📬 when the bridge put the post into the inbox, 👀 when the session read it, ⚠️ — not
 delivered. A failing receipt MUST NOT break delivery.

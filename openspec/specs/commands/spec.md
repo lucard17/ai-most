@@ -8,8 +8,8 @@ is reachable only through its own outbound connection. Hence a command runs in o
 
 | kind | runs | sees | examples |
 | --- | --- | --- | --- |
-| `edge` | in the edge, next to the server | chat API with the edge's bot | `/unfollow`, `/bot-token` |
-| `bridge` | in the owner's bridge | the owner's inboxes, registry, sessions | `/agent status`, `/agent who`, `/agent snooze` |
+| `edge` | in the edge, next to the server | chat API with the edge's bot, bots' status and heartbeat | `/unfollow`, `/bot-token`, `/agent status`, `/agent who` |
+| `bridge` | in the owner's bridge | the owner's inboxes, registry, sessions | `/agent waiting`, `/agent mute`, `/agent follow` |
 | `session` | in the role's session, as an inbox event | everything the session sees | `/agent ask deployer "…"` |
 
 ## Requirements
@@ -51,20 +51,40 @@ the target bot (props `lmost_command`: name, args, caller, signed with the bot o
 either run the `bridge` handler and reply in that DM thread, or put a `command` event into the role's inbox. A command post
 with a wrong key MUST be ignored and logged.
 
-#### Scenario: status of a role from the phone
-- **WHEN** the owner calls `/agent status deployer` in the mobile app
-- **THEN** a command post in the owner's DM with the bot; the bridge replies in its thread: running / idle / waiting ✋,
-  unread count, last turn time
+#### Scenario: mute a role in a thread
+- **WHEN** the owner calls `/agent mute deployer` in a thread
+- **THEN** a command post in the owner's DM with the bot; the bridge mutes the thread for that role and replies in the
+  command post's thread
 NEW
 
 #### Scenario: the owner's machine is offline
-- **WHEN** the owner's bridge is not running, and a `bridge` command is called
-- **THEN** the ephemeral answer says "sent", the command post stays; when the bridge comes back it handles commands not
-  older than `COMMAND_TTL` (10 min by default) and marks older ones "expired"
+- **WHEN** the bridge's heartbeat is older than 3 minutes, and a `bridge` or `session` command is called
+- **THEN** the ephemeral answer says "bridge offline since <time> — will deliver when it is back"; the command post stays
+NEW
+
+#### Scenario: a stale command when the bridge comes back
+- **WHEN** the bridge comes back and finds a command post older than `COMMAND_TTL` (10 min by default)
+- **THEN** it does not run it; it asks the caller in the post's thread with buttons "the command is <age> old — still
+  needed? yes / no"; "yes" runs it as if new, "no" marks it dropped; a non-caller's press does not count
+NEW
+
+### Requirement: Status and who are answered by the edge itself
+`/agent status [role]` and `/agent who` SHALL be `edge` commands: the edge answers at once from the bots' status and the
+bridge heartbeat (status spec), without the owner's machine. The answer SHALL show the data age, and when the heartbeat is
+older than 3 minutes — "bridge offline since <time>" with the last known state of each role.
+
+#### Scenario: status from the phone, machine on
+- **WHEN** the owner calls `/agent status deployer`, and the heartbeat is 30 s old
+- **THEN** an ephemeral answer at once: state, unread count, last turn time, "data 30 s old"
+NEW
+
+#### Scenario: status from the phone, machine off
+- **WHEN** the owner calls `/agent who`, and the last heartbeat was at 14:00
+- **THEN** an ephemeral answer at once: "bridge offline since 14:00" and the last known state of every role
 NEW
 
 ### Requirement: Built-in commands of v1
-v1 SHALL ship: `edge` — `/unfollow`, `/bot-token`; `bridge` — `/agent status [role]`, `/agent who`, `/agent waiting`
+v1 SHALL ship: `edge` — `/unfollow`, `/bot-token`, `/agent status [role]`, `/agent who`; `bridge` — `/agent waiting`
 (the "Waiting for you" list), `/agent mute|follow <role>` in the current thread; `session` — `/agent ask <role> "<text>"`.
 
 #### Scenario: list of roles
