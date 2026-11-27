@@ -836,6 +836,8 @@ def serve(once: bool = False, stop: Optional[threading.Event] = None) -> int:
             watch(x, wake)
     retry_at, full_at = time.time() + RETRY_S, 0.0
     stop = stop or threading.Event()
+    # the loop sleeps on the wake event; a stop must not wait out the tick
+    threading.Thread(target=lambda: (stop.wait(), wake.ev.set()), name="link-stop", daemon=True).start()
     try:
         while not stop.is_set():
             if pending and time.time() >= retry_at:

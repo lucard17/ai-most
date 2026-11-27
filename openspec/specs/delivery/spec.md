@@ -224,7 +224,7 @@ MUST NOT be required.
 #### Scenario: no websocket
 - **WHEN** the chat server does not serve the websocket
 - **THEN** the bridge polls channels every tick and delivers posts
-NEW (upstream has no regression).
+NEW (upstream has no regression). Test (the websocket path, live): `tests/test_link.py` (Real.test_serve_over_the_websocket)
 
 ### Requirement: The owner's reaction is an event
 The owner's reaction on a role's post SHALL reach the role as a `reaction` event with meaning: 👍 — yes, ❌ — no,

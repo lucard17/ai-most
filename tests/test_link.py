@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import types
+import threading
 import time
 import unittest
 import uuid
@@ -300,6 +301,30 @@ class Real(IsolatedTest):
         self.assertEqual(self.reactions(m["id"], "beta"), ["mailbox_with_mail"])
         x.once()
         self.assertEqual(len(self.events("alpha")), 2, "nothing twice")
+
+    def test_serve_over_the_websocket(self):
+        """``aimost link serve`` as it runs: websockets of every bot up, a post arrives because its event woke the pass —
+        the periodic full pass and the tick are pushed far out, so polling cannot be what delivered it."""
+        stop = threading.Event()
+        saved = (link.EVERY_S, link.FULL_S)
+        link.EVERY_S, link.FULL_S = 60.0, 600.0
+        self.addCleanup(lambda: setattr(link, "EVERY_S", saved[0]) or setattr(link, "FULL_S", saved[1]))
+        out = {}
+        t = threading.Thread(target=lambda: out.setdefault("rc", link.serve(stop=stop)), daemon=True)
+        t.start()
+        self.addCleanup(lambda: (stop.set(), t.join(10)))
+        deadline = time.time() + 15
+        while time.time() < deadline and len([w for w in threading.enumerate() if w.name.startswith("ws-it-")]) < 3:
+            time.sleep(0.1)
+        time.sleep(1.5)                       # "hello" of each bot runs one pass; let it finish before the post
+        p = self.post(self.dm("alpha"), "over the websocket")
+        while time.time() < deadline and not any(e.get("post") == p["id"] for e in self.events("alpha")):
+            time.sleep(0.1)
+        self.assertIn(p["id"], [e.get("post") for e in self.events("alpha")], "not delivered within 15 s")
+        stop.set()
+        t.join(3)
+        self.assertFalse(t.is_alive(), "stop ends the loop without waiting out the tick")
+        self.assertEqual(out.get("rc"), 0)
 
     def test_cli_mode_receipt_and_read_receipt(self):
         x = self.start()
