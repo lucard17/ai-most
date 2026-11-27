@@ -60,7 +60,8 @@ def origin(url, *, with_path: bool = False) -> urllib.parse.SplitResult:
 
 
 def _text(value) -> bool:
-    return isinstance(value, str) and bool(TEXT.fullmatch(value))
+    # a dot before a letter is how a bare domain looks ("www.x.com", "1.io") — Mattermost makes it a link; "1.5" is fine
+    return isinstance(value, str) and bool(TEXT.fullmatch(value)) and not re.search(r"\w\.[^\W\d_]", value)
 
 
 def _probe(target) -> None:

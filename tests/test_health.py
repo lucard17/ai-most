@@ -138,8 +138,9 @@ class Config(unittest.TestCase):
 
     def test_shown_texts_cannot_carry_mentions_links_or_table_breaks(self):
         h = "http://h"
-        self.ok({"d": {"c": {"s": target(h, reasons={"worker is starting": "starting up"})}}})
-        for shown in ("@channel down", "see http://x", "a | b", "a\nb", "`x`", "x" * 81, "", "_x"):
+        self.ok({"d": {"c": {"s": target(h, reasons={"worker is starting": "starting up, wait 1.5 min."})}}})
+        for shown in ("@channel down", "see http://x", "a | b", "a\nb", "`x`", "x" * 81, "", "_x", "see www.evil.com",
+                      "evil.com", "1.io"):
             self.bad({"d": {"c": {"s": target(h, reasons={"r": shown})}}}, "bad reasons")
             self.bad({"d": {"c": {"s": target(h, details=[{"field": "x", "label": shown, "count": True}])}}},
                      "bad details")
@@ -484,6 +485,15 @@ class Calls(IsolatedTest):
         self.assertNotIn("staging: checked", text)
 
 
+class Settings(unittest.TestCase):
+    def test_seconds_from_the_environment(self):
+        e = FakeEdge("http://x")
+        for raw, want in (("2.5", 2.5), ("", 5), ("inf", 5), ("nan", 5), ("-1", 5), ("0", 5), ("abc", 5), ("9999", 5)):
+            e.env["EDGE_HEALTH_DEADLINE_S"] = raw
+            self.assertEqual(run.seconds(e, "EDGE_HEALTH_DEADLINE_S", 5), want, raw)
+        self.assertEqual(len(e.logs), 6)
+
+
 class ClaimAfterDeadline(unittest.TestCase):
     def test_no_answer_is_claimed_once_the_deadline_passed(self):
         h = run.Health(lambda m: None)
@@ -539,6 +549,11 @@ class ThroughTheEdge(IsolatedTest):
         self.assertEqual(self.edge.after, [])
         self.assertFalse(self.mm.posted.wait(1.5))
         self.assertEqual(self.svc.hits, [], "nothing polled")
+        self.assertEqual(run.state(self.edge).polls, {}, "nothing reserved another call could wait on")
+        order = []
+        self.post(lambda code, obj: order.append(obj["text"]))
+        self.assertTrue(self.mm.posted.wait(5))
+        self.assertTrue(self.mm.posts[0][1]["text"].startswith("🟢 EXAMPLE: 1/1 ok"), "the next call polls at once")
 
     def test_wrong_key(self):
         got = []

@@ -22,7 +22,8 @@ text rules — lives in plugins, so the core stays usable by anyone. One pattern
 The core SHALL load plugins from entry points and the local plugins directory; `aimost plugins` SHALL list them with kind,
 version and source. A plugin SHALL be enabled per connection (`PLUGINS=<name>[,<name>]`); built-ins are enabled unless
 listed in `PLUGINS_OFF`; optional built-ins (`health`) ship with the core but are off until listed, like an installed
-plugin. A process without connections (the edge) enables plugins by name in `AIMOST_PLUGINS`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
+plugin. `AIMOST_PLUGINS=<name>[,<name>]` enables plugins for the whole process — the way a process without connections
+(the edge) turns them on; for the global points (slash commands, read rules, `who` sources) it wins over `PLUGINS_OFF`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
 stays registered. Callbacks that receive a connection run only where the plugin is enabled; slash commands, read rules
 and `who` sources are installed when the plugin is enabled on at least one connection.
 

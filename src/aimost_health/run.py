@@ -286,6 +286,8 @@ class Call:
         self.timer: Optional[threading.Timer] = None
 
     def reserve(self, domains, domain, service) -> None:
+        """Called from ``start``, after the immediate answer went out: a call whose answer was never sent reserves no
+        poll another call could join and wait on."""
         self.domain, self.service = domain, service
         with self.health.lock:
             self.selected, self.new, expired = self.health.reserve(domains, self.received, self.expires,
@@ -297,8 +299,9 @@ class Call:
     def audit(self, outcome: str, domains=None) -> None:
         audit(self.log, "call", user_id=self.uid, args=self.args, outcome=outcome, domains=domains or {})
 
-    def start(self) -> None:
-        """After the immediate answer is sent: the watcher, the polls this call started, the report."""
+    def start(self, domains=None, domain=None, service=None) -> None:
+        """After the immediate answer is sent: the polls of this call, the watcher, the report."""
+        self.reserve(domains or {}, domain, service)
         self.timer = threading.Timer(max(0.0, self.expires - time.monotonic()), self.expire)
         self.timer.daemon = True
         try:
@@ -364,13 +367,27 @@ class Call:
 _STATE: Dict[str, Health] = {}
 
 
+def seconds(edge, name: str, default: float) -> float:
+    """A positive finite number of seconds from the edge's environment; anything else — the default, said in the log."""
+    raw = edge.env.get(name)
+    if raw is None or raw == "":
+        return default
+    try:
+        v = float(raw)
+    except ValueError:
+        v = float("nan")
+    if not (0 < v < 3600):
+        edge.log(f"health: {name} is not a number of seconds in (0, 3600) — {default:g} is used")
+        return default
+    return v
+
+
 def state(edge) -> Health:
     h = _STATE.get(id(edge))
     if h is None:
-        env = edge.env
-        h = _STATE[id(edge)] = Health(edge.log, min_gap=float(env.get("EDGE_HEALTH_MIN_GAP_S", "10")),
-                                      deadline=float(env.get("EDGE_HEALTH_DEADLINE_S", "5")),
-                                      probe_s=float(env.get("EDGE_HEALTH_PROBE_S", "1")))
+        h = _STATE[id(edge)] = Health(edge.log, min_gap=seconds(edge, "EDGE_HEALTH_MIN_GAP_S", 10),
+                                      deadline=seconds(edge, "EDGE_HEALTH_DEADLINE_S", 5),
+                                      probe_s=seconds(edge, "EDGE_HEALTH_PROBE_S", 1))
     return h
 
 
@@ -402,6 +419,5 @@ def handler(call) -> str:
     if hint:
         return refuse("invalid_arguments" if config else "unconfigured", hint)
     c = Call(h, address, path, call.user_id, args)
-    c.reserve(domains, domain, service)
-    edge.after.append(c.start)
+    edge.after.append(lambda: c.start(domains, domain, service))
     return CHECKING

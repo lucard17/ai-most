@@ -15,7 +15,8 @@ the error type, and never stops the caller.
 Switching is per connection: a callback that receives a connection (text checks, admission, bot resolvers, answer
 sinks) runs only where its plugin is enabled; one that does not (read rules, ``who`` sources, slash commands) is installed
 when the plugin is enabled on at least one connection (a built-in — also when there are no connections at all). A process
-without connections — the edge next to Mattermost — enables plugins by name in ``AIMOST_PLUGINS``.
+without connections — the edge next to Mattermost — enables plugins by name in ``AIMOST_PLUGINS`` (process-wide: for the
+global points it wins over ``PLUGINS_OFF``).
 
 Authority (extensions spec): a ``source`` writes events through :meth:`Registrar.inbox`, which sets the sender role
 itself — ``peer``, or ``owner`` when the connection lists the plugin in ``SOURCES_OWNER``. A plugin cannot raise it.
