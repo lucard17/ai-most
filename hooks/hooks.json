@@ -11,6 +11,7 @@
     "PreToolUse": [
       {"matcher": "AskUserQuestion", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook ask-guard"}]},
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook confirm-guard"}]},
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook quote-guard"}]},
       {"matcher": "Bash|Edit|Write|NotebookEdit", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook peer-guard"}]}
     ]
   }

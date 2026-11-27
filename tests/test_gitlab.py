@@ -275,6 +275,42 @@ class Who(Glab):
         self.assertEqual(who.search("ann lee"), [{"source": "GitLab", "login": "alee", "name": "Ann Lee"}])
 
 
+class Cards(Glab):
+    """Merge request cards in a confirmation post (authority spec: a confirmation describes the action)."""
+
+    def test_card_from_gitlab(self):
+        from aimost_gitlab import cards
+        self.db[MR] = {"iid": 12, "title": "feat:  retry\nupload", "web_url": "https://gl.example/m/12", "state": "opened",
+                       "sha": "abcdef1234567", "head_pipeline": {"status": "success", "sha": "abcdef1234567"}}
+        self.db["projects/grp%2Fbackend/merge_requests/13"] = {"iid": 13, "title": "t", "state": "merged",
+                                                               "sha": "1111111122", "merge_commit_sha": "99999999aa",
+                                                               "head_pipeline": {"status": "failed", "sha": "old"}}
+        self.db["projects/grp%2Fbackend/merge_requests/14"] = {"iid": 14, "title": "t", "state": "opened", "draft": True}
+        self.flush()
+        conn = {"GITLAB_GROUP": "grp"}
+        self.assertEqual(cards.card("backend!12", conn), {"ref": "backend!12", "url": "https://gl.example/m/12",
+                                                          "title": "feat: retry upload", "state": "open",
+                                                          "sha": "abcdef12", "ci": "success"})
+        c = cards.card("backend!13", conn)
+        self.assertEqual((c["state"], c["sha"], c["ci"]), ("merged", "99999999", None), "a pipeline of another commit")
+        self.assertEqual(cards.card("backend!14", conn)["state"], "draft")
+        self.assertIsNone(cards.card("backend#12", conn), "a GitHub reference is not ours")
+        self.assertIsNone(cards.card("backend!12", {}), "no group — no card")
+        with self.assertRaises(Exception):
+            cards.card("backend!99", conn)          # 404: the confirmation shows "not checked"
+
+    def test_registered_into_confirmations(self):
+        import aimost_gitlab
+        from aimost_gitlab import cards
+        got = []
+
+        class Rec:
+            def __getattr__(self, point):
+                return lambda *a: got.append((point, a[-1]))
+        aimost_gitlab.register(Rec())
+        self.assertIn(("confirm_card", cards.card), got)
+
+
 class Available(IsolatedTest):
     def test_glab_needs_a_config_unless_given(self):
         saved = os.environ.pop("AIMOST_GLAB_BIN", None)

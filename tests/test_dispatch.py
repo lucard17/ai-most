@@ -173,7 +173,7 @@ class Wake(DispatchTest):
         inbox.Inbox("lonely").put("hi", via="it")
         self.box.unread(ack=True)
         self.once()
-        self.assertRegex(self.posted(), r"^lonely --via it --channel dm ✋ lonely: 1 unread .*not in the wake list.*"
+        self.assertRegex(self.posted(), r"^lonely --via it --channel dm --plain ✋ lonely: 1 unread .*not in the wake list.*"
                                         r"`claude -n lonely`")
         self.assertEqual(self.n("--resume"), 0)
         self.once()

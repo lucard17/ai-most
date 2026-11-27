@@ -54,6 +54,26 @@ refusal is exit code 2.
 - **THEN** refused; with a confirmation — goes through once
 Test: `tests/test_hooks.py` (ConfirmGuard), `tests/test_confirm.py` (Records)
 
+### Requirement: A confirmation describes the action
+`aimost confirm` SHALL take the action as fields (`--spec <action.json>`): what (`do`), why and at whose request (`why`),
+what happens step by step (`steps`, 1–7), what stays the same (`keeps`), how to undo it or why it cannot be undone
+(`rollback`), and optionally the merge requests it is about (`mrs`), the ones it merges (`merges`) and the commands
+(`commands`, kept with the confirmation, never posted). A missing field, a bare shell command in a meaning field, an
+unknown field, or a merge request in `merges` that is already merged or closed MUST be refused with exit code 4 before
+anything is posted; the two-free-strings form MUST be refused with exit code 2. The post SHALL show the fields in a fixed
+template, a card per merge request (title, state, CI on the head commit — from a plugin, otherwise "not checked") and a
+rule line that promises a merge only for the merge requests in `merges`. On a press the edge SHALL keep the text the
+presser saw and add the outcome. A merge command under a confirmation (`glab mr merge`, `gh pr merge`) SHALL go through
+only when the confirmation names that merge request in `merges`; a merge request only in a card or a step is not covered.
+
+#### Scenario: a "yes" to closing a review is not a "yes" to a merge
+- **WHEN** the owner confirmed "close the review" whose card shows `api!46`, and the session runs
+  `AIMOST_CONFIRM=<id> glab mr merge 46 -R group/api`
+- **THEN** refused: the confirmation does not name `api!46` in `merges`; the confirmation is not spent
+Oracle: upstream `chat-confirm-template.test.sh`, `chat-confirm.test.sh`. Test: `tests/test_confirm_spec.py`,
+`tests/test_hooks.py` (ConfirmGuard.test_a_merge_only_for_the_merge_requests_in_merges, PeerGuard), `tests/test_confirm.py`
+(RealServer), `tests/test_edge.py` (test_confirm_described_by_fields_keeps_the_text), `tests/test_gitlab.py` (Cards)
+
 ### Requirement: Who confirms
 A role's confirmation SHALL accept a press by the owner, the role's co-owners and confirmers from
 `CONFIRMERS=<role>:<login>[+<login>]`. A press by anyone else in the thread MUST NOT count (hint "confirmed by …"); a

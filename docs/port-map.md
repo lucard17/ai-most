@@ -20,7 +20,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `chat.d/chatws.py` | 133 | core ✅ | **ported** → `src/aimost/ws.py` (stoppable watcher); tested on the real server |
 | `chat-who` | 125 | core ✅, split | **ported** chat side → `aimost who`; other sources via `WHO_SOURCES` (GitLab → plugin) |
 | `chat-agents` | 100 | core ✅ | **ported** → `src/aimost/agents.py`, `aimost agents` |
-| `chat-confirm` | 96 | core ✅ | **ported** → `src/aimost/confirm.py`, `aimost confirm`; per-MR merge grants → `confirm.GRANTS` plugin |
+| `chat-confirm` | 96 | core ✅ | **ported** → `src/aimost/confirm.py`, `aimost confirm`; per-MR merge grants → `confirm.GRANTS` plugin; after the freeze (D8 catch-up): `--spec` fields (`confirm_spec.py`), template, `merges`-only merge coverage, MR cards → GitLab plugin (`aimost_gitlab/cards.py`) |
 | `chat-bot-add` | 93 | core ✅ | **ported** → `src/aimost/botadmin.py`, `aimost bot add` — over REST with an admin token instead of ssh + `mmctl` (D12) |
 | `chat-setup` | 91 | cc-plugin + core | `aimost setup [--check]` ✅ (dirs, connection check); units — with the Claude Code plugin; units, templates ✅ (`install.py`); plugin — repo root `.claude-plugin/`, `hooks/hooks.json` ✅ |
 | `chat.d/coldread.py` | 63 | private | unexplained-code check tied to a workspace glossary; maybe later as optional text-check plugin |
@@ -58,6 +58,7 @@ registers them.
 | `openspec/specs/chat-status` (6 req) | core | |
 | `openspec/specs/chat-text` (7 req) | core, split | "MR — link with title", cold reader → plugin/private |
 | `openspec/changes/*` (15 open) | — | ported one by one as they land upstream (D8) |
+| catch-up after the freeze, upstream `b5b7cb7..5fba1e5` (D8, D16) | ~1.2k | core ✅ | confirm described by fields + template + `merges`-only merge coverage (authority spec); `chat-post` markup guard → `markup.py`, text check `layout`, code 11 (text spec); `chat-shell-quote-guard` → hook `quote-guard`; orphan wake DM with `--plain`. MR cards → GitLab plugin. Dropped: the harness class of a card, the review-closing announce template, the `mr-merge` wrapper (workspace tools) |
 
 ## Upstream specs → ai-most specs
 

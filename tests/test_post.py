@@ -119,6 +119,17 @@ class Basics(World):
         self.refused(4, "Deploy? Or wait?")
         self.ok("--plain", "log: Deploy? Or wait?")
 
+    def test_wall_of_text(self):
+        wall = "We looked at the failing upload and " + "found that the retry loop gives up too early, " * 12
+        err = self.refused(11, wall)
+        self.assertIn("the first line", err)
+        self.ok("--plain", wall)
+        doc = self.tmp / "notes.md"
+        doc.write_text(wall + "\n")
+        self.ok("--file", str(doc))                       # a document goes as written
+        pid = self.post_id(self.ok("A short point."))
+        self.assertEqual(self.run_post("--edit", pid, wall)[0], 11, "an edit too")
+
     def test_unknown_login(self):
         err = self.refused(6, "ping @nosuchperson")
         self.assertIn("@nosuchperson", err)

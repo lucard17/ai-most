@@ -4,6 +4,8 @@ Everything ``aimost post`` (and ``aimost channel``) sends goes through one pipel
 
 1. built-in checks, in this order:
    - ``questions_as_text`` — two or more questions as text: code 4 (``--plain`` skips it);
+   - ``layout``            — a post to people as a wall of text (``markup``): code 11 — only for a post's own text, a
+     question's context and an edit (``draft.layout``), never with ``--plain``, for a ``.md`` document or a pin;
    - ``private_guard``     — on a connection with ``PRIVATE_GUARD=on``: a private pattern matched, code 5;
    - ``logins``            — a ``@login`` or ``--to`` addressee missing on the server: code 6; a bot as addressee of
      buttons: code 6; a mentioned person or addressee not in the channel: code 7 (``--invite`` adds them);
@@ -47,7 +49,7 @@ class Draft:
     def __init__(self, message: str = "", *, chunks: Optional[List[str]] = None, ask: Optional[dict] = None,
                  files: Optional[List[str]] = None, to: Optional[List[str]] = None, conn: Optional[dict] = None,
                  plain: bool = False, call: Optional[Callable] = None, channel_id: str = "", me: str = "",
-                 invite: bool = False, extra: Optional[List[str]] = None):
+                 invite: bool = False, extra: Optional[List[str]] = None, layout: bool = False):
         self.message = message or ""
         self.chunks = list(chunks or [])
         self.ask = ask
@@ -60,6 +62,7 @@ class Draft:
         self.me = me
         self.invite = invite
         self.extra = list(extra or [])     # other outgoing text (channel purpose, …) — checked, not rewritten
+        self.layout = layout               # text written for people: the layout check applies (unless plain)
         self.notes: List[str] = []         # warnings for stderr (a check that could not reach its backend)
 
     def texts(self) -> List[str]:
@@ -233,7 +236,17 @@ def _members(d: Draft, ids: Dict[str, str]) -> None:
                      "with `--invite`.")
 
 
-BUILTIN: List[Callable[[Draft], None]] = [questions_as_text, private_guard, logins]
+# ── layout (code 11) ───────────────────────────────────────────────────────────────────────────────────────────────
+def layout(d: Draft) -> None:
+    if not d.layout or d.plain:
+        return
+    from . import markup
+    why = markup.problem((d.ask.get("context") or "") if d.ask is not None else d.message)
+    if why:
+        raise Refused(11, why)
+
+
+BUILTIN: List[Callable[[Draft], None]] = [questions_as_text, layout, private_guard, logins]
 
 
 def run(d: Draft, plugins: Optional[List[Callable[[Draft], None]]] = None) -> Draft:

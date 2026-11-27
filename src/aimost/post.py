@@ -275,7 +275,7 @@ class Poster:
             with open(files[0], encoding="utf-8", errors="replace") as f:
                 chunks = textcheck.md_chunks(f.read())
         d = self.check(textcheck.Draft(chunks[0], chunks=chunks[1:], files=files, plain=plain, channel_id=cid,
-                                       invite=invite))
+                                       invite=invite, layout=not md_text and not pin))
         chunks = [d.message] + d.chunks
         if pin and len(chunks) > 1:
             raise PostError("--pin: the text is longer than one post — shorten it (a pin is one post)")
@@ -344,7 +344,7 @@ class Poster:
         spec["discuss"] = ctype not in ("D", "G")
         if sink:
             spec["sink"] = sink
-        d = self.check(textcheck.Draft("", ask=spec, to=spec["to"], channel_id=cid, invite=invite))
+        d = self.check(textcheck.Draft("", ask=spec, to=spec["to"], channel_id=cid, invite=invite, layout=True))
         spec = d.ask
         if self.sig:
             spec["context"] = self.sign(spec.get("context") or "")   # in the spec: the edge redraws the post from it
@@ -412,7 +412,7 @@ class Poster:
             raise PostError(f"post {post_id} was not written by bot {self.role}" +
                             (f" (relay {self.relay} posts for many sessions — only this one's post)" if self.relay
                              else "") + " — only your own post can be edited", 3)
-        d = self.check(textcheck.Draft(text, plain=plain, channel_id=old.get("channel_id", "")))
+        d = self.check(textcheck.Draft(text, plain=plain, channel_id=old.get("channel_id", ""), layout=True))
         self.api("PUT", f"/posts/{post_id}/patch", {"message": self.sign(d.message)})
         return [f"edited ({self.conn['NAME']}, post {post_id})"]
 

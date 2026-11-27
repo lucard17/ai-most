@@ -263,6 +263,15 @@ class Addressees(World):
         self.assertIn("✅ confirmed — @bob", r["update"]["message"])
         self.assertEqual(r["update"]["props"]["attachments"], [])
 
+    def test_confirm_described_by_fields_keeps_the_text(self):
+        e = self.edge(EDGE_SECRET="s3")
+        self.mm.posts["PA"]["message"] = "🛡 **Confirm: deploy api**\nwhy\n\n**Rollback:** redeploy\n_One “yes” — one action._"
+        ctx = {"kind": "confirm", "v": 2, "id": "c2", "agent": "deployer", "secret": "s3", "to": ["bob"], "answer": "no"}
+        r = self.press(e, "PA", ctx, user="UB")[1]["update"]
+        self.assertEqual(r["message"], "🛡 **Confirm: deploy api**\nwhy\n\n**Rollback:** redeploy\n\n❌ declined — @bob")
+        self.assertEqual((r["props"]["aimost_confirm"]["answer"], r["props"]["attachments"], r["props"]["agent"]),
+                         ("no", [], "deployer"))
+
     def test_withdrawn_question_is_not_answered(self):
         e = self.edge(EDGE_SECRET="s3")
         self.mm.posts["PA"]["props"]["aimost_cancelled"] = {"why": "done elsewhere"}

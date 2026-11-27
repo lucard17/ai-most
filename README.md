@@ -64,7 +64,7 @@ Needs Python ≥ 3.8 (no dependencies), a Mattermost server, and a bot per agent
 Hooks stay silent on machines where the bridge is not set up, so a team may enable the plugin for everyone.
 
 **Codex** reads the same inboxes: run it with `AIMOST_ROLE=<role>` and register `bin/aimost-hook inbox` for
-`UserPromptSubmit` and `Stop`, and `bin/aimost-hook confirm-guard` / `peer-guard` for `PreToolUse`, in Codex's hooks
+`UserPromptSubmit` and `Stop`, and `bin/aimost-hook confirm-guard` / `peer-guard` / `quote-guard` for `PreToolUse`, in Codex's hooks
 configuration. A wake command for an idle Codex session goes into `~/.config/aimost/wake.list` as `<role> cmd <command>`.
 
 **`/health`** (optional): the edge can answer "are our services up?" per environment. Copy

@@ -25,6 +25,40 @@ class QuestionsAsText(unittest.TestCase):
         tc.run(tc.Draft("Deploy?"))
 
 
+class Layout(unittest.TestCase):
+    """A wall of text is refused, code 11 (Oracle: upstream chat-post-markup.test.sh)."""
+    WALL = "We looked at the failing upload and " + "found that the retry loop gives up too early, " * 12
+
+    def test_problem(self):
+        from aimost import markup
+        self.assertIsNone(markup.problem(""))
+        self.assertIsNone(markup.problem("Short and to the point."))
+        self.assertIn("the first line is", markup.problem("x" * 201))
+        self.assertIsNone(markup.problem("@ann @bob\n" + "x" * 150), "a line of mentions is not the first line")
+        para = "\n".join(["short point"] + ["word " * 15] * 5)
+        self.assertIn("a paragraph of", markup.problem(para))
+        self.assertIn("a line of", markup.problem("Point.\n**What:** " + "a; " * 130))
+        flat = "\n\n".join(["Point."] + ["a short paragraph " * 5] * 6)
+        self.assertIn("without a single field, list or heading", markup.problem(flat))
+        good = "Point.\n\n**What:** a change\n**Why:** a reason\n\n" + "\n".join("- item " * 6 for _ in range(10))
+        self.assertIsNone(markup.problem(good))
+        code = "Point.\n```\n" + ("x " * 400) + "\n```\n> " + ("quoted " * 80)
+        self.assertIsNone(markup.problem(code), "code blocks and quotes do not count")
+        link = "Point: [the report](https://x.test/" + "a" * 400 + ")"
+        self.assertIsNone(markup.problem(link), "link addresses do not count")
+
+    def test_in_the_pipeline_only_where_asked(self):
+        with self.assertRaises(tc.Refused) as r:
+            tc.run(tc.Draft(self.WALL, layout=True))
+        self.assertEqual(r.exception.code, 11)
+        self.assertIn("--plain", r.exception.hint)
+        tc.run(tc.Draft(self.WALL, layout=True, plain=True))
+        tc.run(tc.Draft(self.WALL))                      # a document, a pin, a tool's text — not asked
+        with self.assertRaises(tc.Refused):
+            tc.run(tc.Draft("", ask={"context": self.WALL, "parts": []}, layout=True))
+        tc.run(tc.Draft("", ask={"context": "Which window?", "parts": []}, layout=True))
+
+
 class PrivateGuard(IsolatedTest):
     def write_patterns(self, *lines):
         paths.config_dir().mkdir(parents=True, exist_ok=True)

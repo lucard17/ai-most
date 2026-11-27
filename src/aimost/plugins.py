@@ -142,6 +142,13 @@ class Registrar:
         self._pending.append(lambda: connections.BOT_RESOLVERS.append(g))
         return fn
 
+    def confirm_card(self, fn: Callable) -> Callable:
+        """fn(ref, conn) -> a merge request card for a confirmation post, or None (``confirm.CARDS``)."""
+        from . import confirm
+        g = self._gate(fn, lambda ref, conn: conn)
+        self._pending.append(lambda: confirm.CARDS.append(g))
+        return fn
+
     def grant(self, fn: Callable) -> Callable:
         """fn(role, command, hook input) -> reason to count the action as confirmed, or None (``confirm.GRANTS``)."""
         from . import confirm, connections

@@ -163,6 +163,20 @@ Different from upstream:
   start only once "⏳ checking…" is out, and not at all when it could not be sent;
 - the edge watches the code of the built-in plugin packages too (`aimost_*`), not only `aimost`.
 
+## D16. The catch-up after the freeze: confirmations by fields, layout and quote guards — 2026-11-27
+
+Upstream changed the chat tools once more after the D8 freeze point (`b5b7cb7..5fba1e5`): confirmations described by
+fields, a markup guard on posts, a hook against back-tick substitution. Ported as upstream behaves, with these differences:
+- merge request cards come from a plugin point (`confirm.CARDS`, `reg.confirm_card`), the GitLab plugin fills them; the
+  core knows no forge. Which merge request a merge command merges (`confirm.merge_ref`) is parsed in the core, for
+  `glab mr merge` (`repo!N`) and `gh pr merge` (`repo#N`), so `merges` also covers GitHub;
+- the first form of `aimost confirm` (two free strings) is refused, as upstream decided; `--spec -` reads stdin;
+- the layout check is a built-in text check (`layout`, code 11) applied only to text written for people — a post's own
+  text, a question's context, an edit — so pins, documents and tool messages are not checked;
+- the quote guard is a hook of the Claude Code plugin (`quote-guard`), silent where the bridge is not set up, and also
+  watches `gh` pull request and issue text;
+- dropped as workspace-specific: the harness class on a card, the review-closing announcement, the `mr-merge` wrapper.
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

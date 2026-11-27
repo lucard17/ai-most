@@ -22,6 +22,33 @@ Test: `tests/test_textcheck.py` (PrivateGuard), `tests/test_post.py` (Basics.tes
 - **THEN** also exit code 5
 Test: `tests/test_post.py` (Basics.test_private_guard — edit, question), `tests/test_chat_tools.py` (Channel — header); agent directory — Oracle: `chat-agents.test.sh`
 
+### Requirement: A post to people has structure
+A post's own text, a question's context and an edit SHALL be refused with exit code 11 when the first line (after a line of
+mentions only) is over 200 characters, a paragraph or a single line is over 350, or a text over 500 has no field, list item
+or heading; code blocks, quote lines and link addresses do not count. The hint SHALL say the form: the point in the first
+line, fields in bold each on its own line, lists as lists. `--plain`, a `.md` document sent as post text and a pin are not
+checked; text a tool composes itself (the wake dispatcher's DM) goes with `--plain`.
+
+#### Scenario: a wall of text
+- **WHEN** a session posts one solid paragraph of 600 characters
+- **THEN** refused with code 11 and the hint; the same text with `--plain` goes out
+Oracle: upstream `chat-post-markup.test.sh`, `chat-dispatch-orphan-plain.test.sh`. Test: `tests/test_textcheck.py`
+(Layout), `tests/test_post.py` (Basics.test_wall_of_text, real server), `tests/test_dispatch.py`
+(test_nobody_to_wake_tells_the_owner_once)
+
+### Requirement: Back-ticks in a post's text are not run by the shell
+A command that passes post or merge request text to `aimost post|confirm|channel`, `glab … mr create|update|note` or
+`gh … pr|issue create|edit|comment` SHALL be refused before it runs (hook `quote-guard`, PreToolUse Bash) when an unescaped
+back-tick stands inside double quotes or in the body of a heredoc with an unquoted delimiter — the shell would run it and
+put nothing in its place. Single quotes, an escaped back-tick, a heredoc with a quoted delimiter (also inside
+`"$(cat <<'EOF' … EOF)"`), comments and other commands MUST pass. The hint SHALL show the heredoc form.
+
+#### Scenario: logins in back-ticks
+- **WHEN** a session runs ``aimost post --thread T "earlier `@ann` muted"``
+- **THEN** refused with the heredoc hint; the same text through `<<'EOF'` goes out
+Oracle: upstream `chat-shell-quote-guard.test.sh`. Test: `tests/test_hooks.py` (QuoteGuard), `tests/test_plugin.py`
+(Manifest)
+
 ### Requirement: Logins and members are checked against the server
 A non-existent `@login` in the text or in `--to` MUST give exit code 6 with similar logins; a mentioned person or addressee
 not in the channel — exit code 7 (`--invite` SHALL add them); the bot itself not in the channel — exit code 8.
