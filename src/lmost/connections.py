@@ -17,6 +17,8 @@ A connection is ``<config>/connections/<name>.env`` (KEY=VALUE, mode 0600). Keys
     PRIVATE_GUARD   ``on`` — outgoing text is checked against ``<config>/private-patterns`` (text spec)
     BOT_OWNERS, BOT_SERVICE   agent directory: ``<prefix>:<login>`` owners, service bots listed apart
     PROGRESS, PROGRESS_STEPS, WAIT_NOTIFY_AS   activity (status spec)
+    WAITING_POST, WAITING_REMIND_AFTER_H, WAITING_REMIND_REPEAT_H, WAITING_DIGEST_AT   the "Waiting for you" pin
+    BACKFILL_DAYS, BACKFILL_SNOOZE_DAYS   questions spec: registry backfill at start
 
 Bot tokens: ``<config>/bots/<connection>/<role>`` (one token per file, 0600). A session is admitted to exactly the
 connections that name it; its *own* connection is the default one (``<config>/default``) if that admits it, otherwise the
