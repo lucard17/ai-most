@@ -7,4 +7,5 @@ __pycache__/
 build/
 dist/
 tests/integration/it.env
+tests/integration/edge.env
 .work/

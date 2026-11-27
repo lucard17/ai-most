@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start the disposable Mattermost and create the test world: team `it`, people `owner` (admin), `colleague`, `outsider`,
-# bots `deployer`, `devops`, `review`, `relay`, public channel `agents` with everyone in it; tokens go to tests/integration/it.env (gitignored), read by the integration tests.
+# bots `deployer`, `devops`, `review`, `relay`, public channel `agents` with everyone in it, and the edge (edge-up.sh); tokens go to tests/integration/it.env (gitignored), read by the integration tests.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 port=${LMOST_IT_PORT:-8067}
@@ -42,4 +42,5 @@ tok() { mm token generate "$1" it --json | sed -nE 's/.*"token": *"([^"]+)".*/\1
   echo "LMOST_IT_TEAM_ID=$team_id"
 } > "$here/it.env"
 chmod 600 "$here/it.env"
+"$here/edge-up.sh"
 grep -c '=' "$here/it.env" | xargs echo "it.env lines:"
