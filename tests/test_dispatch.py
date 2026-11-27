@@ -58,6 +58,16 @@ class DispatchTest(SessionTest):
 
 
 class Wake(DispatchTest):
+    def test_activity_gets_the_session_list(self):
+        from unittest import mock
+        from lmost import activity
+        agents = [{"name": "steward", "sessionId": "SID-1", "status": "waiting"}]
+        self.set_agents(agents)
+        with mock.patch.object(activity, "status_sync") as ss, mock.patch.object(activity, "waiting_notify") as wn:
+            self.once()
+        ss.assert_called_once_with(agents)
+        wn.assert_called_once_with(agents)
+
     def test_waiting_for_permission_not_woken(self):
         os.utime(self.transcript("SID-1"), (time.time() - 3600,) * 2)
         self.set_agents([{"name": "steward", "sessionId": "SID-1", "status": "waiting"}])

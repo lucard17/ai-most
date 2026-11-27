@@ -41,12 +41,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from . import connections, inbox, paths, turn_origin
-
-try:  # bot status in chat from session states — optional until that module lands
-    from . import activity  # type: ignore
-except ImportError:  # pragma: no cover
-    activity = None  # type: ignore
+from . import activity, connections, inbox, paths, turn_origin
 
 MODEL_RE = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 
@@ -270,7 +265,7 @@ def pass_once() -> None:
     if agents is None:
         log("claude agents --json did not answer")
         return
-    if agents and activity is not None:
+    if agents:
         for fn in ("status_sync", "waiting_notify"):
             try:
                 getattr(activity, fn)(agents)

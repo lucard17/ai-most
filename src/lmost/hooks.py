@@ -22,12 +22,7 @@ import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import confirm, connections, inbox, paths, stale_asks, turn_origin
-
-try:  # activity status in chat ("typing…", progress post) — optional until that module lands
-    from . import activity  # type: ignore
-except ImportError:  # pragma: no cover
-    activity = None  # type: ignore
+from . import activity, confirm, connections, inbox, paths, stale_asks, turn_origin
 
 NAME_CACHE_S = 600
 
@@ -92,11 +87,13 @@ def clear_turn_marks(role: str) -> None:
             pass
 
 
-def _activity(fn: str, *args) -> None:
-    if activity is None:
+def _activity(fn: str, role: str, *args) -> None:
+    """A step or the end of a chat turn in the activity status — only while a chat turn is open (its file exists):
+    a session without a chat turn pays one stat per tool call, nothing more."""
+    if not (activity.activity_dir() / f"{role}.json").exists():
         return
     try:
-        getattr(activity, fn)(*args)
+        getattr(activity, fn)(role, *args)
     except Exception:  # status in chat must never break delivery
         pass
 

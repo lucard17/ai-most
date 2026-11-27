@@ -319,6 +319,21 @@ class InboxHook(HookTest):
         self.assertIn("later", r["reason"])
         self.assertEqual(self.ev("Stop").stdout, "")
 
+    def test_activity_step_and_end_only_in_an_open_chat_turn(self):
+        from unittest import mock
+        from lmost import activity
+        with mock.patch.object(activity, "step") as step, mock.patch.object(activity, "end") as end:
+            self.ev("PostToolUse", tool_name="Bash", tool_input={"description": "run tests"})
+            self.ev("Stop")
+            self.assertEqual((step.call_count, end.call_count), (0, 0), "no chat turn — nothing")
+            paths.private_dir(activity.activity_dir())
+            (activity.activity_dir() / f"{self.ROLE}.json").write_text("{}")
+            self.ev("PostToolUse", tool_name="Bash", tool_input={"description": "run tests"})
+            self.ev("PostToolUse", tool_name="Edit", tool_input={"file_path": "/w/src/a.py"})
+            self.ev("Stop")
+        self.assertEqual([c.args for c in step.call_args_list], [(self.ROLE, "run tests"), (self.ROLE, "edit a.py")])
+        end.assert_called_once_with(self.ROLE)
+
     def test_subagent_does_not_read(self):
         self.box.put("yes", kind="answer")
         self.assertEqual(self.ev("PostToolUse", agent_id="sub").stdout, "")
