@@ -130,7 +130,10 @@ class Basics(World):
         self.refused(5, "x")
         (paths.config_dir() / "private-patterns").write_text("my-hobby\n")
         self.refused(5, "news about my-hobby")
-        self.ok("work news")
+        pid = self.post_id(self.ok("work news"))
+        self.refused(5, "--edit", pid, "now about my-hobby")
+        self.refused(5, "--ask", "Join my-hobby?", "yes", "no")
+        self.assertEqual(self.get(pid)["message"], "work news")
 
 
 @requires_mattermost
