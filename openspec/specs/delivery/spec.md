@@ -164,6 +164,20 @@ to a role) without waking the bot's main role.
 - **THEN** the event is in the inbox of `review-x`
 Oracle: `chatlib-shared-bot.test.sh`, `chatlib.test.sh`
 
+### Requirement: Relay bot for sessions without a bot
+An admitted session without its own or a shared bot SHALL be able to post through the connection's relay bot (`RELAY`):
+only into the owner's direct message, every post signed "from session <role>" in the first line. The relay MUST NOT post
+into a channel or another person's DM (exit code 3), MUST NOT be used by a session that has a bot or is not admitted, and a
+session MUST NOT edit, cancel or reply into another session's relay thread (exit code 3). The owner's reply, button answer
+or reaction in a relay thread SHALL reach only the session that started the thread (`props.agent` of the root), with
+sender role `owner`; a mention of the relay outside its threads reaches nobody.
+
+#### Scenario: a session without a bot asks the owner
+- **WHEN** session `probe` has no bot and calls `lmost post --ask …`
+- **THEN** a question with buttons in the owner's DM from the relay, first line "from session probe"; the owner's press
+  reaches `probe`'s inbox, not another session's
+Oracle: `chat-relay.test.sh`; `tests/test_connections.py` (Bots)
+
 ### Requirement: Own connection and admission
 A session admitted by several connections SHALL post to the default connection when `--via` is not given. A session that
 is not admitted or has no bot MUST NOT post (exit code 3). Admission: `SESSIONS` (names or patterns), `SESSIONS_CWD`

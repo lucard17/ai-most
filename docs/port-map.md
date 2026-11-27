@@ -11,7 +11,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `chat-link` | 1093 | core, split | link daemon → modules: routing, authority, questions, waiting list, reactions, loop guard. Answers into the task tracker → private answer-sink plugin |
 | `chat-post` | 704 | core, split | post as role bot, asks with buttons, edit, pin, invite. Tracker question keys → private |
 | `chat.d/edge.py` | 654 | core | buttons, dialogs, per-owner keys; its hard-coded `/unfollow` and `/bot-token` become the first `edge` commands of the registry (D6) |
-| `chat.d/chatlib.py` | 332 | core, split | connections, session admission, bots. `REVIEW_SESSIONS`, tracker env → private |
+| `chat.d/chatlib.py` | 332 | core, split | connections, admission, bots, relay, thread route **ported** ✅ → `src/lmost/connections.py` (19 tests; exact `cwd` from transcripts instead of decoding the directory name). Still to move: API/upload/download/describe → Mattermost transport; asks registry, snoozes, discussions → questions. `REVIEW_SESSIONS` → private admission plugin (`ADMISSION`, `BOT_RESOLVERS`); tracker env → private |
 | `chat-activity` | 313 | core | typing, bot status, progress post |
 | `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional |
 | `chat-dispatch` | 217 | core | wake dispatcher, bash → Python; terminal tab launcher hint → configurable |
