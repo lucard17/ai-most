@@ -47,7 +47,7 @@ SHALL get their own section in "Waiting for you".
 #### Scenario: a co-owner presses a sink question
 - **WHEN** a co-owner presses a button of a sink question
 - **THEN** the answer does not count, nothing is passed to the sink
-Oracle: `chat-link.test.sh` (upstream: task-tracker answers)
+Test: `tests/test_waiting.py` (Real.test_sink_gets_only_the_owners_answer, Real.test_sink_refusal_is_posted)
 
 ### Requirement: Text checks form a pipeline
 Outgoing text SHALL pass the built-in checks and then enabled `text_check` plugins in a fixed order; the first refusal stops
