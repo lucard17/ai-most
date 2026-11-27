@@ -1,0 +1,5 @@
+#!/bin/sh
+# lmost from this directory without installing anything (the Claude Code plugin, a plain checkout):
+# the package is in ../src next to this script. A pip-installed `lmost` on PATH works the same.
+root=$(cd "$(dirname "$0")/.." && pwd)
+PYTHONPATH="$root/src${PYTHONPATH:+:$PYTHONPATH}" exec "${LMOST_PYTHON:-python3}" -m lmost "$@"
