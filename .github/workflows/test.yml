@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     container: python:3.8-slim
     steps:
+      - name: git (the slim image has none; some tests read a repository)
+        run: apt-get update -qq && apt-get install -y -qq git >/dev/null
       - uses: actions/checkout@v5
       - name: unit tests (no Mattermost)
         run: AIMOST_IT=0 python -m unittest discover -s tests -t tests -v
