@@ -1,4 +1,4 @@
-"""`lmost bot add` (status spec: one bot per role; bots for other people) — names offline, the rest on the real server."""
+"""`aimost bot add` (status spec: one bot per role; bots for other people) — names offline, the rest on the real server."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import botadmin
-from lmost import mattermost as mm
+from aimost import botadmin
+from aimost import mattermost as mm
 
 
 class Names(IsolatedTest):
@@ -69,12 +69,12 @@ class Names(IsolatedTest):
 class Real(IsolatedTest):
     def setUp(self):
         super().setUp()
-        self.conn = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
+        self.conn = {"NAME": "it", "URL": IT["AIMOST_IT_URL"]}
         self.pre = "b" + uuid.uuid4().hex[:6]
         cfg = self.tmp / "config"
         (cfg / "connections").mkdir(parents=True)
         self.env_file = cfg / "connections" / "it.env"
-        self.env_file.write_text(f"URL={IT['LMOST_IT_URL']}\nTEAM={IT['LMOST_IT_TEAM']}\nOWNER={self.pre}\nSESSIONS=x\n")
+        self.env_file.write_text(f"URL={IT['AIMOST_IT_URL']}\nTEAM={IT['AIMOST_IT_TEAM']}\nOWNER={self.pre}\nSESSIONS=x\n")
         self.made = []
 
     def tearDown(self):
@@ -85,11 +85,11 @@ class Real(IsolatedTest):
         super().tearDown()
 
     def owner(self, method, path, body=None):
-        return mm.api(self.conn, method, path, body, token=IT["LMOST_IT_TOKEN_OWNER"])
+        return mm.api(self.conn, method, path, body, token=IT["AIMOST_IT_TOKEN_OWNER"])
 
     def add(self, *args):
-        return self.lmost("bot", "add", *args, "--via", "it",
-                          env={"LMOST_ADMIN_TOKEN": IT["LMOST_IT_TOKEN_OWNER"], "LMOST_NO_RESTART": "1"})
+        return self.aimost("bot", "add", *args, "--via", "it",
+                          env={"AIMOST_ADMIN_TOKEN": IT["AIMOST_IT_TOKEN_OWNER"], "AIMOST_NO_RESTART": "1"})
 
     def test_own_bot_then_retry_then_bring_back(self):
         name = f"{self.pre}-scout"
@@ -105,7 +105,7 @@ class Real(IsolatedTest):
         self.assertIn("SESSIONS=x,scout", self.env_file.read_text())
         u = self.owner("GET", f"/users/username/{name}")
         self.assertEqual(self.owner("GET", f"/bots/{u['id']}")["description"], "finds things")
-        self.owner("GET", f"/channels/{IT['LMOST_IT_CHANNEL_AGENTS']}/members/{u['id']}")
+        self.owner("GET", f"/channels/{IT['AIMOST_IT_CHANNEL_AGENTS']}/members/{u['id']}")
 
         r = self.add("scout", "--desc", "finds things")
         self.assertEqual(r.returncode, 1)
@@ -132,19 +132,19 @@ class Real(IsolatedTest):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn(f"/bot-token {name}", r.stdout)
         u = self.owner("GET", f"/users/username/{name}")
-        self.assertEqual(self.owner("GET", f"/bots/{u['id']}")["owner_id"], IT["LMOST_IT_USER_ID_COLLEAGUE"])
+        self.assertEqual(self.owner("GET", f"/bots/{u['id']}")["owner_id"], IT["AIMOST_IT_USER_ID_COLLEAGUE"])
         self.assertFalse((self.tmp / "config" / "bots").exists(), "no token is issued for someone else's bot")
         self.assertEqual(self.env_file.read_text(), before)
 
         r = self.add("helper", "--owner", "outsider", "--prefix", self.pre, "--desc", "helps")
         self.assertEqual(r.returncode, 7, r.stderr)
-        self.assertEqual(self.owner("GET", f"/bots/{u['id']}")["owner_id"], IT["LMOST_IT_USER_ID_COLLEAGUE"])
+        self.assertEqual(self.owner("GET", f"/bots/{u['id']}")["owner_id"], IT["AIMOST_IT_USER_ID_COLLEAGUE"])
 
     def test_owner_must_be_a_person(self):
         self.assertEqual(self.add("hh", "--owner", "deployer", "--desc", "x").returncode, 6)
         self.assertEqual(self.add("h2", "--owner", "nobody-" + self.pre, "--desc", "x").returncode, 6)
 
     def test_no_admin_token(self):
-        r = self.lmost("bot", "add", "scout", "--desc", "x", "--via", "it")
+        r = self.aimost("bot", "add", "scout", "--desc", "x", "--via", "it")
         self.assertEqual(r.returncode, 2)
         self.assertIn("no admin token", r.stderr)

@@ -7,7 +7,7 @@ import unittest
 
 from helpers import IsolatedTest
 
-from lmost import questions as q
+from aimost import questions as q
 
 AUTH = {"secret": "s3", "kid": "k1"}
 URL = "http://edge.test:8767/action"
@@ -105,13 +105,13 @@ class Misc(unittest.TestCase):
         self.assertEqual(q.title(Render.spec), "Deploy? (+1)")
 
     def test_cancelled_patch_keeps_props(self):
-        post = {"message": "❓ Q", "props": {"agent": "r", "lmost_question": "ask-1", "attachments": [
+        post = {"message": "❓ Q", "props": {"agent": "r", "aimost_question": "ask-1", "attachments": [
             {"title": "1. Q", "text": "t", "actions": [{"id": "x"}]}]}}
         p = q.cancelled_patch(post, "moot", by="r", at=5)
         self.assertEqual(p["message"], "⏹ Question cancelled: moot\n❓ Q")
         self.assertEqual(p["props"]["attachments"], [{"title": "1. Q", "text": "t"}])
-        self.assertEqual(p["props"]["lmost_cancelled"], {"why": "moot", "at": 5, "by": "r"})
-        self.assertEqual((p["props"]["agent"], p["props"]["lmost_question"]), ("r", "ask-1"))
+        self.assertEqual(p["props"]["aimost_cancelled"], {"why": "moot", "at": 5, "by": "r"})
+        self.assertEqual((p["props"]["agent"], p["props"]["aimost_question"]), ("r", "ask-1"))
         self.assertIn("actions", post["props"]["attachments"][0])
 
 

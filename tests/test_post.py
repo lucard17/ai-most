@@ -1,4 +1,4 @@
-"""``lmost post`` against the disposable real Mattermost (specs: text, questions, delivery → relay).
+"""``aimost post`` against the disposable real Mattermost (specs: text, questions, delivery → relay).
 
 Each test class makes its own channel (uuid name) in the shared team; nothing of other suites is touched.
 """
@@ -13,24 +13,24 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import askstore, cli_post, mattermost as mm, paths, post, questions
+from aimost import askstore, cli_post, mattermost as mm, paths, post, questions
 
 def owner_call(method, path, body=None, token=None):
-    return mm.api({"URL": IT["LMOST_IT_URL"]}, method, path, body, token=token or IT["LMOST_IT_TOKEN_OWNER"])
+    return mm.api({"URL": IT["AIMOST_IT_URL"]}, method, path, body, token=token or IT["AIMOST_IT_TOKEN_OWNER"])
 
 
 def bot_call(role, method, path, body=None):
-    return mm.api({"URL": IT["LMOST_IT_URL"]}, method, path, body, token=IT[f"LMOST_IT_BOT_{role.upper()}"])
+    return mm.api({"URL": IT["AIMOST_IT_URL"]}, method, path, body, token=IT[f"AIMOST_IT_BOT_{role.upper()}"])
 
 
 def new_channel(members=("deployer",), people=("owner",)) -> dict:
-    ch = owner_call("POST", "/channels", {"team_id": IT["LMOST_IT_TEAM_ID"], "name": "t" + uuid.uuid4().hex[:20],
+    ch = owner_call("POST", "/channels", {"team_id": IT["AIMOST_IT_TEAM_ID"], "name": "t" + uuid.uuid4().hex[:20],
                                           "display_name": "test", "type": "O"})
     for b in members:
-        owner_call("POST", f"/channels/{ch['id']}/members", {"user_id": IT[f"LMOST_IT_BOT_ID_{b.upper()}"]})
+        owner_call("POST", f"/channels/{ch['id']}/members", {"user_id": IT[f"AIMOST_IT_BOT_ID_{b.upper()}"]})
     for u in people:
         if u != "owner":
-            owner_call("POST", f"/channels/{ch['id']}/members", {"user_id": IT[f"LMOST_IT_USER_ID_{u.upper()}"]})
+            owner_call("POST", f"/channels/{ch['id']}/members", {"user_id": IT[f"AIMOST_IT_USER_ID_{u.upper()}"]})
     return ch
 
 
@@ -44,15 +44,15 @@ class World(IsolatedTest):
         c = paths.config_dir()
         (c / "connections").mkdir(parents=True)
         (c / "connections" / "it.env").write_text(
-            f"URL={IT['LMOST_IT_URL']}\nOWNER=owner\nTEAM=it\nSESSIONS=deployer,devops,probe,other\nRELAY=relay\n"
+            f"URL={IT['AIMOST_IT_URL']}\nOWNER=owner\nTEAM=it\nSESSIONS=deployer,devops,probe,other\nRELAY=relay\n"
             f"EDGE_PUBLIC=edge.test:8767\nEDGE_SECRET=sec\nEDGE_KEY_ID=k1\n{self.conn_extra}")
         (c / "bots" / "it").mkdir(parents=True)
         for b in ("deployer", "devops", "relay"):
-            (c / "bots" / "it" / b).write_text(IT[f"LMOST_IT_BOT_{b.upper()}"])
-        os.environ["LMOST_ROLE"] = self.role
+            (c / "bots" / "it" / b).write_text(IT[f"AIMOST_IT_BOT_{b.upper()}"])
+        os.environ["AIMOST_ROLE"] = self.role
 
     def run_post(self, *args, role=None):
-        r = self.lmost("post", *args, env={"LMOST_ROLE": role or self.role})
+        r = self.aimost("post", *args, env={"AIMOST_ROLE": role or self.role})
         return r.returncode, r.stdout, r.stderr
 
     def ok(self, *args, role=None) -> str:
@@ -75,7 +75,7 @@ class World(IsolatedTest):
 
     def dm_id(self, bot="deployer", user="OWNER"):
         return owner_call("POST", "/channels/direct",
-                          [IT[f"LMOST_IT_BOT_ID_{bot.upper()}"], IT[f"LMOST_IT_USER_ID_{user}"]])["id"]
+                          [IT[f"AIMOST_IT_BOT_ID_{bot.upper()}"], IT[f"AIMOST_IT_USER_ID_{user}"]])["id"]
 
 
 class Args(unittest.TestCase):
@@ -92,7 +92,7 @@ class Offline(IsolatedTest):
     def test_usage_errors_before_network(self):
         for args, code in ((["--blocking", "x"], 2), (["--ttl", "0", "--ask", "Q?", "a", "b"], 2),
                            (["--ask", "Q?", "a"], 2), (["--ask", "x" * 301, "a", "b"], 4), (["x"], 2)):
-            r = self.lmost("post", *args, env={"LMOST_ROLE": "nobody" if args != ["x"] else ""})
+            r = self.aimost("post", *args, env={"AIMOST_ROLE": "nobody" if args != ["x"] else ""})
             self.assertEqual(r.returncode, code, (args, r.stderr))
 
 
@@ -161,7 +161,7 @@ class Channels(World):
         self.assertIn("updated", self.ok("--channel", self.ch["name"], "--pin", "rules", "rule two"))
         pinned = owner_call("GET", f"/channels/{self.ch['id']}/pinned")["posts"]
         self.assertEqual(list(pinned), [pid])
-        self.assertEqual((pinned[pid]["message"], pinned[pid]["props"]["lmost_pin"]), ("rule two", "rules"))
+        self.assertEqual((pinned[pid]["message"], pinned[pid]["props"]["aimost_pin"]), ("rule two", "rules"))
 
     def test_edit_own_only(self):
         pid = self.post_id(self.ok("--channel", self.ch["name"], "first"))
@@ -204,9 +204,9 @@ class Files(World):
         fake = self.tmp / "mmdc"
         fake.write_text("#!/bin/sh\nprintf 'PNG' > \"$2\"\n")
         fake.chmod(0o755)
-        r = self.lmost("post", "graph:\n```mermaid\ngraph TD; A-->B\n```",
-                       env={"LMOST_ROLE": "deployer", "LMOST_MERMAID_BIN": str(fake),
-                            "LMOST_MERMAID_DIR": str(self.tmp / "mm")})
+        r = self.aimost("post", "graph:\n```mermaid\ngraph TD; A-->B\n```",
+                       env={"AIMOST_ROLE": "deployer", "AIMOST_MERMAID_BIN": str(fake),
+                            "AIMOST_MERMAID_DIR": str(self.tmp / "mm")})
         self.assertEqual(r.returncode, 0, r.stderr)
         th = owner_call("GET", f"/posts/{self.post_id(r.stdout)}/thread")
         imgs = [p for p in th["posts"].values() if p.get("file_ids")]
@@ -235,7 +235,7 @@ class TurnThread(World):
     def test_turn_author_mentioned_in_channel(self):
         ch = new_channel(people=("owner", "colleague"))
         root = owner_call("POST", "/posts", {"channel_id": ch["id"], "message": "@deployer status?"},
-                          token=IT["LMOST_IT_TOKEN_COLLEAGUE"])
+                          token=IT["AIMOST_IT_TOKEN_COLLEAGUE"])
         self.turn(root=root["id"], ended=None, **{"from": "colleague", "role": "person"})
         pid = self.post_id(self.ok("--thread", root["id"], "--channel", "dm", "all green"))
         self.assertEqual(self.get(pid)["message"], "@colleague all green")
@@ -252,7 +252,7 @@ class Asks(World):
         qid = out.split("question ")[1].split()[0]
         p = self.get(pid)
         props = p["props"]
-        self.assertEqual((props["lmost_question"], props["lmost_ask"]["to"], props["lmost_ask"]["discuss"]),
+        self.assertEqual((props["aimost_question"], props["aimost_ask"]["to"], props["aimost_ask"]["discuss"]),
                          (qid, ["owner"], False))
         acts = props["attachments"][0]["actions"]
         # the server hides button integrations (url, signed context) from readers; their shape — test_questions
@@ -269,8 +269,8 @@ class Asks(World):
                                                              {"title": "Notify?", "options": ["a", "b"]}]}))
         out = self.ok("--channel", ch["name"], "--ask", str(spec), "--to", "owner,colleague")
         p = self.get(self.post_id(out))
-        self.assertEqual(p["props"]["lmost_ask"]["to"], ["owner", "colleague"])
-        self.assertTrue(p["props"]["lmost_ask"]["discuss"])
+        self.assertEqual(p["props"]["aimost_ask"]["to"], ["owner", "colleague"])
+        self.assertTrue(p["props"]["aimost_ask"]["discuss"])
         self.assertEqual(p["message"].split("\n")[:3], ["@owner @colleague", "❓ 1. Merge?", "2. Notify?"])
 
     def test_bot_addressee_and_non_member(self):
@@ -295,8 +295,8 @@ class Asks(World):
         p = self.get(p1)
         self.assertTrue(p["message"].startswith("⏹ Question cancelled: moot now\n"))
         self.assertNotIn("actions", p["props"]["attachments"][0])
-        self.assertEqual(p["props"]["lmost_cancelled"]["why"], "moot now")
-        self.assertEqual((p["props"]["agent"], p["props"]["lmost_ask"]["to"]), ("deployer", ["owner"]))
+        self.assertEqual(p["props"]["aimost_cancelled"]["why"], "moot now")
+        self.assertEqual((p["props"]["agent"], p["props"]["aimost_ask"]["to"]), ("deployer", ["owner"]))
         self.assertIn("already cancelled", self.ok("--cancel", p1, "again"))
         listed = self.ok("--open-asks")
         self.assertNotIn(q1, listed)
@@ -311,7 +311,7 @@ class Asks(World):
         out = self.ok("--ask", "Done?", "yes", "no")
         qid, pid = out.split("question ")[1].split()[0], self.post_id(out)
         p = self.get(pid)
-        props = dict(p["props"], lmost_answers={"1": {"option": 1, "by": "owner"}})
+        props = dict(p["props"], aimost_answers={"1": {"option": 1, "by": "owner"}})
         bot_call("deployer", "PUT", f"/posts/{pid}/patch", {"props": props})
         self.assertNotIn(qid, self.ok("--open-asks"))
         self.assertEqual(askstore.asks("deployer")[qid]["state"], "answered")
@@ -321,7 +321,7 @@ class Asks(World):
                                              sink="tracker")
         qid = lines[1].split("question ")[1].split()[0]
         self.assertEqual(askstore.asks("deployer")[qid]["sink"], "tracker")
-        self.assertEqual(self.get(self.post_id(lines[0]))["props"]["lmost_ask"]["sink"], "tracker")
+        self.assertEqual(self.get(self.post_id(lines[0]))["props"]["aimost_ask"]["sink"], "tracker")
 
 
 @requires_mattermost

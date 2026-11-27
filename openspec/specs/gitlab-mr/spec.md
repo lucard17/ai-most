@@ -11,7 +11,7 @@ session that created it and turns MR activity into events in that session's inbo
 ### Requirement: An MR is linked to the session that created it
 After a successful MR-creating command the hook SHALL link the MR to the session (a subagent links it to its parent
 session). MR-creating commands are `glab mr create` plus command words from `MR_CREATE_PATTERNS` (connection key or
-`LMOST_MR_CREATE_PATTERNS`); success is an MR URL in the
+`AIMOST_MR_CREATE_PATTERNS`); success is an MR URL in the
 output, not the exit code. Network work runs in the background; the hook prints nothing and never blocks.
 
 #### Scenario: a wrapper script creates the MR
@@ -41,10 +41,10 @@ as is.
 Test: `tests/test_gitlab.py` (Links)
 
 ### Requirement: Optional
-Without `glab` (or with `glab` never logged in — no user config; `LMOST_GLAB_BIN` set explicitly counts as present) or
+Without `glab` (or with `glab` never logged in — no user config; `AIMOST_GLAB_BIN` set explicitly counts as present) or
 with the plugin switched off, the bridge SHALL work as without it: no hook output, no timer errors, no text check.
 
 #### Scenario: no glab
 - **WHEN** `glab` is not installed
-- **THEN** `lmost setup` does not install the MR timer, hooks stay silent
-Test: `tests/test_gitlab.py` (Hook, Available, `once` without glab); the timer part — with `lmost setup`
+- **THEN** `aimost setup` does not install the MR timer, hooks stay silent
+Test: `tests/test_gitlab.py` (Hook, Available, `once` without glab); the timer part — with `aimost setup`

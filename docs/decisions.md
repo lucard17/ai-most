@@ -12,10 +12,12 @@ so the exclusive rights stay with the author. The project is published as the or
 - Public history starts fresh. No internal hostnames, channel names, people, or company-specific logic in code, docs or history.
 - Nothing from other paid work of the author goes in (only code written for this bridge).
 
-## D2. Name: `l-most` — 2026-11-27
+## D2. Name: `ai-most` — 2026-11-27
 
-"most" is Russian for "bridge"; reads as "almost" in English. Package `l-most`, command and module `lmost`.
-Rejected: `matter-most` (confusingly similar to the Mattermost trademark), names starting with `claude-` (look official).
+"most" is Russian for "bridge"; "ai-most" reads as "almost" in English and says what it is for. Package `ai-most`, command
+and module `aimost`, props `aimost_*`, environment `AIMOST_*`. First named `l-most` (the author's initial); renamed before
+publication, while no one depended on the names (PyPI `ai-most`/`aimost` and the GitHub repository were free).
+Rejected: `ai-bridge` (generic, says nothing about Mattermost), `matter-most` (confusingly similar to the Mattermost trademark), names starting with `claude-` (look official).
 
 ## D3. Language: Python, port with cleanup, not a rewrite — 2026-11-27
 
@@ -24,7 +26,7 @@ Rejected: `matter-most` (confusingly similar to the Mattermost trademark), names
 - The 1100-line link daemon is split into modules (routing, authority, questions, waiting list, reactions).
 - Linux and macOS: locking via `fcntl`, not the `flock` binary; services as a foreground process + example units for
   systemd and launchd.
-- Install: `uv tool install l-most` / `pipx install l-most`.
+- Install: `uv tool install ai-most` / `pipx install ai-most`.
 
 Rejected: TypeScript (native MCP SDK, but a rewrite and Python is the common language around agents), Go (single binary,
 most expensive port).
@@ -87,11 +89,11 @@ the flow reverses: fixes land here first.
 
 ## D9. One command with subcommands — 2026-11-27
 
-`chat-<x>` tools become `lmost <x>`: `link` (daemon), `dispatch` (daemon), `edge` (server side), `inbox`, `post`, `confirm`,
+`chat-<x>` tools become `aimost <x>`: `link` (daemon), `dispatch` (daemon), `edge` (server side), `inbox`, `post`, `confirm`,
 `activity`, `bot add`, `channel`, `thread`, `file`, `react`, `who`, `agents`, `setup`, `plugins`, `commands`. Config moves
-from `~/.config/chat/` to `~/.config/lmost/`, state from `~/.local/state/chat-*` to `~/.local/state/lmost/`; env prefix
-`CHAT_` becomes `LMOST_` (`CHAT_CONFIRM` → `LMOST_CONFIRM`, `CHAT_POST_NAME` → `LMOST_ROLE`). Exit codes of `post` keep
-upstream values; plugin checks use 20–39 (the MR-link check moves from 9 to 20). `lmost migrate` imports an upstream
+from `~/.config/chat/` to `~/.config/aimost/`, state from `~/.local/state/chat-*` to `~/.local/state/aimost/`; env prefix
+`CHAT_` becomes `AIMOST_` (`CHAT_CONFIRM` → `AIMOST_CONFIRM`, `CHAT_POST_NAME` → `AIMOST_ROLE`). Exit codes of `post` keep
+upstream values; plugin checks use 20–39 (the MR-link check moves from 9 to 20). `aimost migrate` imports an upstream
 config and state.
 
 ## D10. Tests on stdlib unittest; session mode is core — 2026-11-27
@@ -110,21 +112,21 @@ modes) is workspace-specific and stays out.
 - **Integration**: a disposable Mattermost from `tests/integration/compose.yaml` (same image as production use, tmpfs
   data, 127.0.0.1 only, its own small subnet, memory caps): `tests/integration/up.sh` creates team `it`, people `owner`
   (admin) and `colleague`, bots `deployer` and `relay`, and writes tokens to `it.env` (gitignored); tests that need it
-  skip when it is down (`LMOST_IT=0` forces skipping). `down.sh` wipes it. Never point tests at a live server.
+  skip when it is down (`AIMOST_IT=0` forces skipping). `down.sh` wipes it. Never point tests at a live server.
 - What only the real server proves: props replaced whole on patch, bot permissions, websocket events, and real button
   presses calling the edge (`POST /posts/<id>/actions/<action>` as a user).
 
 ## D12. Bots are created over REST, not on the chat server — 2026-11-27
 
-Upstream `chat-bot-add` ran `mmctl --local` on the chat server over ssh. `lmost bot add` uses the REST API with a token of
-a user allowed to create bots (`LMOST_ADMIN_TOKEN` or `<config>/admin/<connection>`, 0600): no shell access to the
+Upstream `chat-bot-add` ran `mmctl --local` on the chat server over ssh. `aimost bot add` uses the REST API with a token of
+a user allowed to create bots (`AIMOST_ADMIN_TOKEN` or `<config>/admin/<connection>`, 0600): no shell access to the
 server, works with any hosting. A bot for another person is assigned to them and no token is issued by the admin — they
 take one with `/bot-token` (commands spec).
 
 ## D13. The bridge heartbeat lives in the bot's preferences — 2026-11-27
 
 The status spec first put the heartbeat into bot user props, but a bot may not patch its own user (403 on the real
-server). The bridge writes the bot's own preference `lmost_heartbeat/state` (JSON: seen, role, state, unread, last turn);
+server). The bridge writes the bot's own preference `aimost_heartbeat/state` (JSON: seen, role, state, unread, last turn);
 the edge's bot (a system admin) reads it, other users cannot. The edge interprets its age ("bridge offline since …").
 
 ## D14. One registry per extension point; the bridge, the waiting list and plugins meet there — 2026-11-27
@@ -136,7 +138,7 @@ needed the same thing, one copy was kept:
 - the per-connection context (bots, ids, owner, co-owners) — `linkctx`, used by `link` and `waiting`;
 - answers from the edge's marks — only `waiting.on_post`; the bridge passes own-bot posts to it;
 - 👀 on ack — `receipts`, registered in `inbox` (`inbox` cannot import `link`: cycle);
-- background units of plugins — `reg.service(...)` → `install.SERVICES`, installed by `lmost setup`.
+- background units of plugins — `reg.service(...)` → `install.SERVICES`, installed by `aimost setup`.
 
 Routing follows the upstream oracle where the spec text differed: in someone else's thread a person who called the role
 without an @ is not delivered. `CHANNEL_OWNERS` defaults to `top <channel> -> role`. The workspace-specific listener

@@ -11,8 +11,8 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import askstore, commands, heartbeat, inbox, link, paths
-from lmost import mattermost as mm
+from aimost import askstore, commands, heartbeat, inbox, link, paths
+from aimost import mattermost as mm
 
 
 # ── offline: routes and the rules a pass applies ───────────────────────────────────────────────────────────────────────
@@ -122,7 +122,7 @@ class Rules(IsolatedTest):
         self.assertFalse(x.loop_guard(dict(p, id="p6", create_at=6), "deployer", self.CH), "six in a row — fine")
         x.loop_free = {"agents"}
         self.assertFalse(x.loop_guard(p, "deployer", {"name": "agents", "type": "O"}))
-        posts[3]["props"] = {"lmost_answers": {"1": {"user_id": "OWN"}}}
+        posts[3]["props"] = {"aimost_answers": {"1": {"user_id": "OWN"}}}
         x = fake_link(threads={"R": posts})
         self.assertFalse(x.loop_guard(p, "deployer", self.CH), "the owner's button press is a person taking part")
 
@@ -149,14 +149,14 @@ class Rules(IsolatedTest):
     def test_stale_command_answer(self):
         x = fake_link()
         x.commands_path = self.tmp / "c.json"
-        cp = {"id": "CP", "channel_id": "D", "props": {"lmost_command": {"caller": {"id": "H1"}}}}
+        cp = {"id": "CP", "channel_id": "D", "props": {"aimost_command": {"caller": {"id": "H1"}}}}
         ran = []
         x.run_command = lambda p, who, payload: ran.append(p["id"])
         x.api = lambda method, path, body=None, who=None: x.sent.append((method, path, body)) or \
             (cp if path == "/posts/CP" else {})
 
         def press(uid, option):
-            x.on_command_answer({"id": "Q", "props": {"lmost_question": "ask-1", "lmost_answers": {
+            x.on_command_answer({"id": "Q", "props": {"aimost_question": "ask-1", "aimost_answers": {
                 "1": {"user_id": uid, "option": option}}}}, "deployer")
         x.commands = {"done": [], "asked": {"ask-1": "CP"}}
         press("OWN", 1)
@@ -182,8 +182,8 @@ class Restart(IsolatedTest):
         (self.tmp / "config" / "bots" / "down").mkdir(parents=True)
         (self.tmp / "config" / "connections" / "down.env").write_text("URL=http://127.0.0.1:9\nOWNER=x\nSESSIONS=r1\n")
         (self.tmp / "config" / "bots" / "down" / "r1").write_text("tok")
-        os.environ["LMOST_API_TIMEOUT"] = "2"
-        self.addCleanup(os.environ.pop, "LMOST_API_TIMEOUT", None)
+        os.environ["AIMOST_API_TIMEOUT"] = "2"
+        self.addCleanup(os.environ.pop, "AIMOST_API_TIMEOUT", None)
         pending = {"down": {"NAME": "down", "URL": "http://127.0.0.1:9", "OWNER": "x", "SESSIONS": "r1"}}
         self.assertEqual(link.connect(pending), [])
         self.assertIn("down", pending, "kept for a retry, not dropped")
@@ -192,15 +192,15 @@ class Restart(IsolatedTest):
         (self.tmp / "config" / "connections").mkdir(parents=True)
         (self.tmp / "config" / "connections" / "a.env").write_text("URL=http://127.0.0.1:9\nOWNER=x\n")
         (self.tmp / "config" / "connections" / "a.routes").write_text("dm -> self\nbogus\n")
-        r = self.lmost("link", "once")
+        r = self.aimost("link", "once")
         self.assertEqual(r.returncode, 2)
         self.assertIn("a.routes:2:", r.stderr)
 
 
 # ── against the real server ────────────────────────────────────────────────────────────────────────────────────────────
 def owner_api(method, path, body=None, token=None):
-    return mm.api({"NAME": "it", "URL": IT["LMOST_IT_URL"]}, method, path, body,
-                  token=token or IT["LMOST_IT_TOKEN_OWNER"])
+    return mm.api({"NAME": "it", "URL": IT["AIMOST_IT_URL"]}, method, path, body,
+                  token=token or IT["AIMOST_IT_TOKEN_OWNER"])
 
 
 @requires_mattermost
@@ -211,7 +211,7 @@ class Real(IsolatedTest):
     def setUpClass(cls):
         tag = uuid.uuid4().hex[:6]
         cls.made, cls.tok, cls.uid = [], {}, {}
-        team = IT["LMOST_IT_TEAM_ID"]
+        team = IT["AIMOST_IT_TEAM_ID"]
         for role in ("alpha", "beta", "rly"):
             name = f"l{tag}-{role}"
             b = owner_api("POST", "/bots", {"username": name, "display_name": name})
@@ -223,7 +223,7 @@ class Real(IsolatedTest):
         cls.chname = "link-" + tag
         cls.ch = owner_api("POST", "/channels", {"team_id": team, "name": cls.chname, "display_name": cls.chname,
                                                  "type": "O"})["id"]
-        for uid in (IT["LMOST_IT_USER_ID_COLLEAGUE"], cls.uid["alpha"], cls.uid["beta"]):
+        for uid in (IT["AIMOST_IT_USER_ID_COLLEAGUE"], cls.uid["alpha"], cls.uid["beta"]):
             owner_api("POST", f"/channels/{cls.ch}/members", {"user_id": uid})
 
     @classmethod
@@ -240,23 +240,23 @@ class Real(IsolatedTest):
             (cfg / "bots" / "it" / r).write_text(t)
         self.env = cfg / "connections" / "it.env"
         self.write_env()
-        os.environ["LMOST_ACTIVITY_SYNC"] = "1"
-        self.addCleanup(os.environ.pop, "LMOST_ACTIVITY_SYNC", None)
+        os.environ["AIMOST_ACTIVITY_SYNC"] = "1"
+        self.addCleanup(os.environ.pop, "AIMOST_ACTIVITY_SYNC", None)
 
     def write_env(self, extra=""):
-        self.env.write_text(f"URL={IT['LMOST_IT_URL']}\nTEAM={IT['LMOST_IT_TEAM']}\nOWNER=owner\n"
-                            f"SESSIONS=alpha,beta,probe\nRELAY=rly\nEDGE_PUBLIC={IT.get('LMOST_IT_EDGE_PUBLIC', '')}\n"
-                            f"EDGE_SECRET={IT.get('LMOST_IT_EDGE_SECRET', '')}\n" + extra)
+        self.env.write_text(f"URL={IT['AIMOST_IT_URL']}\nTEAM={IT['AIMOST_IT_TEAM']}\nOWNER=owner\n"
+                            f"SESSIONS=alpha,beta,probe\nRELAY=rly\nEDGE_PUBLIC={IT.get('AIMOST_IT_EDGE_PUBLIC', '')}\n"
+                            f"EDGE_SECRET={IT.get('AIMOST_IT_EDGE_SECRET', '')}\n" + extra)
 
     def start(self):
         """A Link with its first pass done: the boundary is now, later posts are new."""
-        x = link.Link({**__import__("lmost.connections", fromlist=["x"]).connections()["it"]})
+        x = link.Link({**__import__("aimost.connections", fromlist=["x"]).connections()["it"]})
         x.once()
         time.sleep(0.05)
         return x
 
     def dm(self, role, token=None):
-        return owner_api("POST", "/channels/direct", [self.uid[role], IT["LMOST_IT_USER_ID_OWNER"]])["id"]
+        return owner_api("POST", "/channels/direct", [self.uid[role], IT["AIMOST_IT_USER_ID_OWNER"]])["id"]
 
     def post(self, channel, message, token=None, root="", props=None):
         body = {"channel_id": channel, "message": message}
@@ -276,9 +276,9 @@ class Real(IsolatedTest):
     def test_dm_mention_thread_and_receipt(self):
         x = self.start()
         p = self.post(self.dm("alpha"), "deploy please")
-        m = self.post(self.ch, f"@{self.handle['beta']} look", token=IT["LMOST_IT_TOKEN_COLLEAGUE"])
+        m = self.post(self.ch, f"@{self.handle['beta']} look", token=IT["AIMOST_IT_TOKEN_COLLEAGUE"])
         root = owner_api("POST", "/posts", {"channel_id": self.ch, "message": "release notes"}, token=self.tok["alpha"])
-        r = self.post(self.ch, "a question", token=IT["LMOST_IT_TOKEN_COLLEAGUE"], root=root["id"])
+        r = self.post(self.ch, "a question", token=IT["AIMOST_IT_TOKEN_COLLEAGUE"], root=root["id"])
         x.once()
         a = self.events("alpha")
         self.assertEqual([(e["kind"], e["role"], e["from"], e["channel"], e["post"]) for e in a],
@@ -306,7 +306,7 @@ class Real(IsolatedTest):
         """The first bot's 📬 moves update_at; the second bot still gets the post as new."""
         x = self.start()
         p = self.post(self.ch, f"@{self.handle['alpha']} @{self.handle['beta']} both of you",
-                      token=IT["LMOST_IT_TOKEN_COLLEAGUE"])
+                      token=IT["AIMOST_IT_TOKEN_COLLEAGUE"])
         x.once({"alpha"})
         x.once({"beta"})
         self.assertEqual([e["post"] for e in self.events("alpha")], [p["id"]])
@@ -317,7 +317,7 @@ class Real(IsolatedTest):
         mine = owner_api("POST", "/posts", {"channel_id": self.dm("alpha"), "message": "merge it?"},
                          token=self.tok["alpha"])
         x.once()
-        owner_api("POST", "/reactions", {"user_id": IT["LMOST_IT_USER_ID_OWNER"], "post_id": mine["id"],
+        owner_api("POST", "/reactions", {"user_id": IT["AIMOST_IT_USER_ID_OWNER"], "post_id": mine["id"],
                                          "emoji_name": "+1"})
         x.once()
         x.once()
@@ -344,8 +344,8 @@ class Real(IsolatedTest):
 
     def test_foreign_bot_only_by_mention_as_peer(self):
         x = self.start()
-        dep = IT["LMOST_IT_BOT_DEPLOYER"]   # a bot of the test world that is not a role here
-        owner_api("POST", f"/channels/{self.ch}/members", {"user_id": IT["LMOST_IT_BOT_ID_DEPLOYER"]})
+        dep = IT["AIMOST_IT_BOT_DEPLOYER"]   # a bot of the test world that is not a role here
+        owner_api("POST", f"/channels/{self.ch}/members", {"user_id": IT["AIMOST_IT_BOT_ID_DEPLOYER"]})
         self.post(self.ch, "build failed", token=dep)
         m = self.post(self.ch, f"@{self.handle['alpha']} checked", token=dep)
         x.once()
@@ -353,7 +353,7 @@ class Real(IsolatedTest):
 
     def test_relay(self):
         x = self.start()
-        dm = owner_api("POST", "/channels/direct", [self.uid["rly"], IT["LMOST_IT_USER_ID_OWNER"]])["id"]
+        dm = owner_api("POST", "/channels/direct", [self.uid["rly"], IT["AIMOST_IT_USER_ID_OWNER"]])["id"]
         root = owner_api("POST", "/posts", {"channel_id": dm, "message": "from session probe · via relay\nhi",
                                             "props": {"agent": "probe", "relay": "rly"}}, token=self.tok["rly"])
         x.once()
@@ -381,7 +381,7 @@ class Real(IsolatedTest):
 
     # ── answers and command posts need the edge of the test world ──────────────────────────────────────────────────
     def need_edge(self):
-        if not IT.get("LMOST_IT_EDGE_URL"):
+        if not IT.get("AIMOST_IT_EDGE_URL"):
             self.skipTest("no edge in the test world")
 
     def press(self, pid, action, token=None):
@@ -389,13 +389,13 @@ class Real(IsolatedTest):
 
     def test_button_answer_reaches_the_asker(self):
         self.need_edge()
-        from lmost import post as postmod
+        from aimost import post as postmod
         x = self.start()
         postmod.Poster("alpha", via="it", warn=lambda m: None).ask(
             {"parts": [{"title": "deploy now?", "text": "", "options": ["yes", "no"]}]})
         q = askstore.open_asks("alpha")[-1]
         try:
-            self.press(q["post"], "p1o2", token=IT["LMOST_IT_TOKEN_COLLEAGUE"])   # not an addressee: the edge refuses
+            self.press(q["post"], "p1o2", token=IT["AIMOST_IT_TOKEN_COLLEAGUE"])   # not an addressee: the edge refuses
         except mm.HTTPError:
             pass
         self.press(q["post"], "p1o1")
@@ -409,12 +409,12 @@ class Real(IsolatedTest):
 
     def command(self, role, sub, args, at=None, secret=None, root="", caller=None):
         payload = {"name": "agent", "sub": sub, "args": args,
-                   "caller": caller or {"id": IT["LMOST_IT_USER_ID_OWNER"], "username": "owner"}, "bot": self.uid[role],
-                   "team_id": IT["LMOST_IT_TEAM_ID"], "channel_id": self.ch, "root_id": root,
+                   "caller": caller or {"id": IT["AIMOST_IT_USER_ID_OWNER"], "username": "owner"}, "bot": self.uid[role],
+                   "team_id": IT["AIMOST_IT_TEAM_ID"], "channel_id": self.ch, "root_id": root,
                    "at": int((at or time.time()) * 1000)}
-        payload["sig"] = commands.sign(payload, secret or IT["LMOST_IT_EDGE_SECRET"])
+        payload["sig"] = commands.sign(payload, secret or IT["AIMOST_IT_EDGE_SECRET"])
         return owner_api("POST", "/posts", {"channel_id": self.dm(role), "message": f"`/agent {sub}`",
-                                            "props": {"lmost_command": payload}})
+                                            "props": {"aimost_command": payload}})
 
     def replies(self, pid):
         th = owner_api("GET", f"/posts/{pid}/thread")
@@ -438,7 +438,7 @@ class Real(IsolatedTest):
         self.need_edge()
         x = self.start()
         cp = self.command("alpha", "mute", ["alpha"], root="t" * 26,
-                          caller={"id": IT["LMOST_IT_USER_ID_COLLEAGUE"], "username": "colleague"})
+                          caller={"id": IT["AIMOST_IT_USER_ID_COLLEAGUE"], "username": "colleague"})
         x.once()
         self.assertTrue(any("is not open to you" in m for m in self.replies(cp["id"])))
         self.assertFalse((paths.inbox_dir() / "alpha.mute").exists())
@@ -447,7 +447,7 @@ class Real(IsolatedTest):
         self.write_env("WAITING_POST=alpha\n")
         x = self.start()
         pins = owner_api("GET", f"/channels/{self.dm('alpha')}/pinned")
-        self.assertTrue(any((pins["posts"][i].get("props") or {}).get("lmost_waiting") for i in pins["order"]),
+        self.assertTrue(any((pins["posts"][i].get("props") or {}).get("aimost_waiting") for i in pins["order"]),
                         "waiting.tick runs after a pass")
 
     def test_mute_command_in_a_thread(self):
@@ -469,7 +469,7 @@ class Real(IsolatedTest):
         x.once()
         self.assertEqual(self.events("alpha"), [], "not run silently")
         th = owner_api("GET", f"/posts/{cp['id']}/thread")
-        q = next(th["posts"][i] for i in th["order"] if (th["posts"][i].get("props") or {}).get("lmost_question"))
+        q = next(th["posts"][i] for i in th["order"] if (th["posts"][i].get("props") or {}).get("aimost_question"))
         self.assertIn("min old", q["message"])
         self.press(q["id"], "p1o1")
         x.once()

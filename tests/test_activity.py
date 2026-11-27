@@ -10,10 +10,10 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import activity
-from lmost import mattermost as mm
+from aimost import activity
+from aimost import mattermost as mm
 
-ENV = ("LMOST_ACTIVITY_SYNC", "LMOST_PROGRESS_AFTER_S", "LMOST_PROGRESS_EVERY_S", "LMOST_ACTIVITY_DIR")
+ENV = ("AIMOST_ACTIVITY_SYNC", "AIMOST_PROGRESS_AFTER_S", "AIMOST_PROGRESS_EVERY_S", "AIMOST_ACTIVITY_DIR")
 
 
 class Offline(IsolatedTest):
@@ -71,22 +71,22 @@ class Real(IsolatedTest):
     def setUp(self):
         super().setUp()
         self._env = {k: os.environ.get(k) for k in ENV}
-        os.environ.update({"LMOST_ACTIVITY_SYNC": "1", "LMOST_PROGRESS_AFTER_S": "0", "LMOST_PROGRESS_EVERY_S": "0"})
-        self.conn = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
+        os.environ.update({"AIMOST_ACTIVITY_SYNC": "1", "AIMOST_PROGRESS_AFTER_S": "0", "AIMOST_PROGRESS_EVERY_S": "0"})
+        self.conn = {"NAME": "it", "URL": IT["AIMOST_IT_URL"]}
         self.role = "a" + uuid.uuid4().hex[:7]
         b = self.owner("POST", "/bots", {"username": self.role, "display_name": self.role})
         self.bot_id = b["user_id"]
         self.tok = self.owner("POST", f"/users/{self.bot_id}/tokens", {"description": "it"})["token"]
-        self.owner("POST", f"/teams/{IT['LMOST_IT_TEAM_ID']}/members",
-                   {"team_id": IT["LMOST_IT_TEAM_ID"], "user_id": self.bot_id})
+        self.owner("POST", f"/teams/{IT['AIMOST_IT_TEAM_ID']}/members",
+                   {"team_id": IT["AIMOST_IT_TEAM_ID"], "user_id": self.bot_id})
         cfg = self.tmp / "config"
         (cfg / "connections").mkdir(parents=True)
         (cfg / "bots" / "it").mkdir(parents=True)
         self.env_file = cfg / "connections" / "it.env"
-        self.env_file.write_text(f"URL={IT['LMOST_IT_URL']}\nTEAM={IT['LMOST_IT_TEAM']}\nOWNER=owner\n"
+        self.env_file.write_text(f"URL={IT['AIMOST_IT_URL']}\nTEAM={IT['AIMOST_IT_TEAM']}\nOWNER=owner\n"
                                  f"SESSIONS={self.role}\n")
         (cfg / "bots" / "it" / self.role).write_text(self.tok)
-        self.dm = self.bot("POST", "/channels/direct", [self.bot_id, IT["LMOST_IT_USER_ID_OWNER"]])["id"]
+        self.dm = self.bot("POST", "/channels/direct", [self.bot_id, IT["AIMOST_IT_USER_ID_OWNER"]])["id"]
 
     def tearDown(self):
         for k, v in self._env.items():
@@ -95,7 +95,7 @@ class Real(IsolatedTest):
         super().tearDown()
 
     def owner(self, method, path, body=None):
-        return mm.api(self.conn, method, path, body, token=IT["LMOST_IT_TOKEN_OWNER"])
+        return mm.api(self.conn, method, path, body, token=IT["AIMOST_IT_TOKEN_OWNER"])
 
     def bot(self, method, path, body=None):
         return mm.api(self.conn, method, path, body, token=self.tok)
@@ -131,7 +131,7 @@ class Real(IsolatedTest):
 
     def test_no_progress_post_in_a_channel(self):
         name = "act-" + uuid.uuid4().hex[:8]
-        ch = self.owner("POST", "/channels", {"team_id": IT["LMOST_IT_TEAM_ID"], "name": name, "display_name": name,
+        ch = self.owner("POST", "/channels", {"team_id": IT["AIMOST_IT_TEAM_ID"], "name": name, "display_name": name,
                                               "type": "O"})
         self.owner("POST", f"/channels/{ch['id']}/members", {"user_id": self.bot_id})
         p = self.owner("POST", "/posts", {"channel_id": ch["id"], "message": "look"})
@@ -191,8 +191,8 @@ class Real(IsolatedTest):
                 and "waiting" in r["posts"][i]["message"]]  # not the server's "add me to teams" greeting
 
     def test_reaction_in_background(self):
-        """Without LMOST_ACTIVITY_SYNC the reaction goes from a detached `lmost activity react` process."""
-        os.environ.pop("LMOST_ACTIVITY_SYNC")
+        """Without AIMOST_ACTIVITY_SYNC the reaction goes from a detached `aimost activity react` process."""
+        os.environ.pop("AIMOST_ACTIVITY_SYNC")
         p = self.owner("POST", "/posts", {"channel_id": self.dm, "message": "bg"})
         activity.react("it", self.role, p["id"], "eyes")
         for _ in range(50):
@@ -217,5 +217,5 @@ class Real(IsolatedTest):
 
 class Wired(IsolatedTest):
     def test_inbox_ack_starts_a_turn(self):
-        from lmost import inbox
+        from aimost import inbox
         self.assertIn(activity.on_ack, inbox.ACK_LISTENERS)

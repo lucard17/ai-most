@@ -7,7 +7,7 @@ import unittest
 
 from helpers import IsolatedTest
 
-from lmost import askstore, paths
+from aimost import askstore, paths
 
 
 class Registry(IsolatedTest):
@@ -29,10 +29,10 @@ class Registry(IsolatedTest):
 
     def test_ask_state(self):
         spec = {"parts": [{"title": "a"}, {"title": "b"}]}
-        self.assertEqual(askstore.ask_state({"props": {"lmost_ask": spec, "lmost_answers": {"0": "x"}}}), "open")
-        self.assertEqual(askstore.ask_state({"props": {"lmost_ask": spec, "lmost_answers": {"0": "x", "1": "y"}}}),
+        self.assertEqual(askstore.ask_state({"props": {"aimost_ask": spec, "aimost_answers": {"0": "x"}}}), "open")
+        self.assertEqual(askstore.ask_state({"props": {"aimost_ask": spec, "aimost_answers": {"0": "x", "1": "y"}}}),
                          "answered")
-        self.assertEqual(askstore.ask_state({"props": {"lmost_cancelled": {"why": "w"}}}), "cancelled")
+        self.assertEqual(askstore.ask_state({"props": {"aimost_cancelled": {"why": "w"}}}), "cancelled")
 
 
 class Snoozes(IsolatedTest):

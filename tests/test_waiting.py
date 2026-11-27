@@ -16,20 +16,20 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import askstore, inbox, plugins, waiting
-from lmost import mattermost as mm
-from lmost import post as postmod
+from aimost import askstore, inbox, plugins, waiting
+from aimost import mattermost as mm
+from aimost import post as postmod
 
 def _edge_up() -> bool:
     import urllib.request
     try:
-        with urllib.request.urlopen(IT["LMOST_IT_EDGE_URL"] + "/version", timeout=2):
+        with urllib.request.urlopen(IT["AIMOST_IT_EDGE_URL"] + "/version", timeout=2):
             return True
     except Exception:
         return False
 
 
-requires_edge = unittest.skipUnless(IT.get("LMOST_IT_EDGE_URL") and _edge_up(), "the test world's edge is not running")
+requires_edge = unittest.skipUnless(IT.get("AIMOST_IT_EDGE_URL") and _edge_up(), "the test world's edge is not running")
 
 
 class Offline(IsolatedTest):
@@ -81,12 +81,12 @@ class Sink:
 class Real(IsolatedTest):
     def setUp(self):
         super().setUp()
-        os.environ["LMOST_WAITING_EVERY_S"] = "0"
-        self.addCleanup(os.environ.pop, "LMOST_WAITING_EVERY_S", None)
+        os.environ["AIMOST_WAITING_EVERY_S"] = "0"
+        self.addCleanup(os.environ.pop, "AIMOST_WAITING_EVERY_S", None)
         self.addCleanup(waiting._ctx.clear)
         saved = dict(plugins.ANSWER_SINKS)       # tests register under the built-in's name, which is on everywhere
         self.addCleanup(lambda: (plugins.ANSWER_SINKS.clear(), plugins.ANSWER_SINKS.update(saved)))
-        self.conn0 = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
+        self.conn0 = {"NAME": "it", "URL": IT["AIMOST_IT_URL"]}
         u = uuid.uuid4().hex[:6]
         self.asker, self.pinner = "wa" + u, "wp" + u
         self.bot_ids, self.toks = {}, {}
@@ -97,8 +97,8 @@ class Real(IsolatedTest):
             b = self.owner("POST", "/bots", {"username": role, "display_name": role})
             self.bot_ids[role] = b["user_id"]
             self.toks[role] = self.owner("POST", f"/users/{b['user_id']}/tokens", {"description": "it"})["token"]
-            self.owner("POST", f"/teams/{IT['LMOST_IT_TEAM_ID']}/members",
-                       {"team_id": IT["LMOST_IT_TEAM_ID"], "user_id": b["user_id"]})
+            self.owner("POST", f"/teams/{IT['AIMOST_IT_TEAM_ID']}/members",
+                       {"team_id": IT["AIMOST_IT_TEAM_ID"], "user_id": b["user_id"]})
             (cfg / "bots" / "it" / role).write_text(self.toks[role])
         self.env_file = cfg / "connections" / "it.env"
         self.write_env()
@@ -113,18 +113,18 @@ class Real(IsolatedTest):
 
     def write_env(self, extra="", pin=True, digest=""):
         self.env_file.write_text(
-            f"URL={IT['LMOST_IT_URL']}\nTEAM={IT['LMOST_IT_TEAM']}\nOWNER=owner\nSESSIONS={self.asker},{self.pinner}\n"
-            + (f"WAITING_POST={self.pinner}\n" if pin else "") + f"WAITING_DIGEST_AT={digest}\nEDGE_PUBLIC={IT.get('LMOST_IT_EDGE_PUBLIC', 'edge:1')}\n"
-            f"EDGE_SECRET={IT.get('LMOST_IT_EDGE_SECRET', 's')}\n" + extra)
+            f"URL={IT['AIMOST_IT_URL']}\nTEAM={IT['AIMOST_IT_TEAM']}\nOWNER=owner\nSESSIONS={self.asker},{self.pinner}\n"
+            + (f"WAITING_POST={self.pinner}\n" if pin else "") + f"WAITING_DIGEST_AT={digest}\nEDGE_PUBLIC={IT.get('AIMOST_IT_EDGE_PUBLIC', 'edge:1')}\n"
+            f"EDGE_SECRET={IT.get('AIMOST_IT_EDGE_SECRET', 's')}\n" + extra)
         waiting._ctx.clear()
 
     @property
     def conn(self):
-        from lmost import connections
+        from aimost import connections
         return connections.connections()["it"]
 
     def owner(self, method, path, body=None):
-        return mm.api(self.conn0, method, path, body, token=IT["LMOST_IT_TOKEN_OWNER"])
+        return mm.api(self.conn0, method, path, body, token=IT["AIMOST_IT_TOKEN_OWNER"])
 
     def as_bot(self, method, path, body=None, role=None):
         return mm.api(self.conn0, method, path, body, token=self.toks[role or self.asker])
@@ -171,8 +171,8 @@ class Real(IsolatedTest):
 
     def test_free_text_answer_carries_the_retell_demand(self):
         q, pid = self.ask()
-        p = self.mark(pid, "lmost_answers", {"1": {"text": "only after 18:00", "by": "owner",
-                                                   "user_id": IT["LMOST_IT_USER_ID_OWNER"], "at": int(time.time() * 1000)}})
+        p = self.mark(pid, "aimost_answers", {"1": {"text": "only after 18:00", "by": "owner",
+                                                   "user_id": IT["AIMOST_IT_USER_ID_OWNER"], "at": int(time.time() * 1000)}})
         waiting.on_post(self.conn, p)
         ev = self.events()
         self.assertIn("only after 18:00", ev[0]["text"])
@@ -181,14 +181,14 @@ class Real(IsolatedTest):
     def test_who_may_answer(self):
         q, pid = self.ask()
         at = int(time.time() * 1000)
-        p = self.mark(pid, "lmost_answers", {"1": {"option": 1, "by": "colleague",
-                                                   "user_id": IT["LMOST_IT_USER_ID_COLLEAGUE"], "at": at}})
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 1, "by": "colleague",
+                                                   "user_id": IT["AIMOST_IT_USER_ID_COLLEAGUE"], "at": at}})
         waiting.on_post(self.conn, p)
         self.assertEqual(self.events(), [], "not an addressee")
         # the same marks on someone else's post (a forged author) are ignored
         forged = self.owner("POST", "/posts", {"channel_id": p["channel_id"], "message": "x", "props": {
-            "lmost_question": q, "agent": self.asker, "lmost_ask": p["props"]["lmost_ask"],
-            "lmost_answers": {"1": {"option": 1, "by": "owner", "user_id": IT["LMOST_IT_USER_ID_OWNER"], "at": at}}}})
+            "aimost_question": q, "agent": self.asker, "aimost_ask": p["props"]["aimost_ask"],
+            "aimost_answers": {"1": {"option": 1, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"], "at": at}}}})
         waiting.on_post(self.conn, forged)
         self.assertEqual(self.events(), [])
         # a co-owner of the role counts
@@ -199,7 +199,7 @@ class Real(IsolatedTest):
     def test_answer_after_cancel_does_not_count(self):
         q, pid = self.ask()
         postmod.Poster(self.asker, via="it", warn=lambda m: None).cancel(q, "moot")
-        p = self.mark(pid, "lmost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["LMOST_IT_USER_ID_OWNER"],
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
                                                    "at": int(time.time() * 1000) + 1000}})
         waiting.on_post(self.conn, p)
         self.assertEqual(self.events(), [])
@@ -227,7 +227,7 @@ class Real(IsolatedTest):
         self.assertEqual([e["kind"] for e in ev], ["cancelled"])
         pin = self.pin()
         self.assertTrue(pin["message"].startswith("📋 Waiting for you — 1"))
-        self.assertNotIn("lmost_waiting_drop", pin["props"], "the redraw cleared the processed mark")
+        self.assertNotIn("aimost_waiting_drop", pin["props"], "the redraw cleared the processed mark")
         # snooze the remaining line for a day
         self.owner("POST", f"/posts/{pin['id']}/actions/snooze0", {"selected_option": "1d"})
         waiting.on_post(self.conn, self.post(pin["id"]))
@@ -247,17 +247,17 @@ class Real(IsolatedTest):
         pin = self.pin()
         ctx = waiting.context(self.conn)
         at = int(time.time() * 1000)
-        pin["props"]["lmost_waiting_snooze"] = {q: {"value": "forever", "asker": self.asker,
-                                                    "user_id": IT["LMOST_IT_USER_ID_COLLEAGUE"], "at": at}}
+        pin["props"]["aimost_waiting_snooze"] = {q: {"value": "forever", "asker": self.asker,
+                                                    "user_id": IT["AIMOST_IT_USER_ID_COLLEAGUE"], "at": at}}
         waiting.on_waiting_snooze(ctx, pin, None)
         self.assertEqual(askstore.snoozes("it"), {}, "only the owner snoozes")
-        pin["props"]["lmost_waiting_snooze"] = {q: {"value": "forever", "asker": self.asker,
-                                                    "user_id": IT["LMOST_IT_USER_ID_OWNER"], "at": at}}
+        pin["props"]["aimost_waiting_snooze"] = {q: {"value": "forever", "asker": self.asker,
+                                                    "user_id": IT["AIMOST_IT_USER_ID_OWNER"], "at": at}}
         waiting.on_waiting_snooze(ctx, pin, None)
         waiting.on_waiting_snooze(ctx, pin, None)
         self.assertIsNone(askstore.snoozes("it", now_ms=at + 40 * 86400000)[q]["until"])
         self.assertEqual(len(self.events()), 1, "a mark is applied once")
-        pin["props"]["lmost_waiting_snooze"] = {"": {"value": "back:" + q, "user_id": IT["LMOST_IT_USER_ID_OWNER"],
+        pin["props"]["aimost_waiting_snooze"] = {"": {"value": "back:" + q, "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
                                                      "at": at + 5}}
         waiting.on_waiting_snooze(ctx, pin, None)
         self.assertEqual(askstore.snoozes("it"), {})
@@ -268,8 +268,8 @@ class Real(IsolatedTest):
         now = time.time()
         waiting.tick(self.conn, now)
         pin = self.pin()
-        props = dict(pin["props"], lmost_waiting_snooze={q1: {"value": "7d", "asker": self.asker,
-                                                              "user_id": IT["LMOST_IT_USER_ID_OWNER"],
+        props = dict(pin["props"], aimost_waiting_snooze={q1: {"value": "7d", "asker": self.asker,
+                                                              "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
                                                               "at": int(now * 1000)}})
         self.as_bot("PUT", f"/posts/{pin['id']}/patch", {"props": props}, role=self.pinner)
         self.ask("second?")                                  # the contents change — a redraw is due
@@ -281,7 +281,7 @@ class Real(IsolatedTest):
 
     def test_pin_marks_only_on_the_pin(self):
         q, pid = self.ask()
-        p = self.mark(pid, "lmost_waiting_drop", {q: {"asker": self.asker, "user_id": IT["LMOST_IT_USER_ID_OWNER"],
+        p = self.mark(pid, "aimost_waiting_drop", {q: {"asker": self.asker, "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
                                                       "at": 1}})
         waiting.on_post(self.conn, p)
         self.assertEqual(askstore.asks(self.asker)[q]["state"], "open")
@@ -302,11 +302,11 @@ class Real(IsolatedTest):
 
     # ── reminders ─────────────────────────────────────────────────────────────────────────────────────────────────
     def reminders(self):
-        dm = self.as_bot("POST", "/channels/direct", [self.bot_ids[self.pinner], IT["LMOST_IT_USER_ID_OWNER"]],
+        dm = self.as_bot("POST", "/channels/direct", [self.bot_ids[self.pinner], IT["AIMOST_IT_USER_ID_OWNER"]],
                          role=self.pinner)["id"]
         r = self.owner("GET", f"/channels/{dm}/posts")
         return [r["posts"][i] for i in r["order"]
-                if (r["posts"][i].get("props") or {}).get("lmost_remind") or r["posts"][i]["props"].get("lmost_digest")]
+                if (r["posts"][i].get("props") or {}).get("aimost_remind") or r["posts"][i]["props"].get("aimost_digest")]
 
     def test_blocking_question_reminders(self):
         q, _ = self.ask("deploy?", blocking=True)
@@ -319,7 +319,7 @@ class Real(IsolatedTest):
         rem = self.reminders()
         self.assertEqual(len(rem), 1)
         self.assertIn("⏰ Waiting for an answer, work stops without it: 🔴", rem[0]["message"])
-        self.assertEqual(rem[0]["props"]["lmost_remind"], q)
+        self.assertEqual(rem[0]["props"]["aimost_remind"], q)
         waiting.waiting_remind(waiting.context(self.conn), t0 + 190 * 60)
         self.assertEqual(len(self.reminders()), 2)
 
@@ -364,14 +364,14 @@ class Real(IsolatedTest):
     # ── discussions ───────────────────────────────────────────────────────────────────────────────────────────────
     def test_discussion_in_a_dm(self):
         name = "wd-" + uuid.uuid4().hex[:8]
-        ch = self.owner("POST", "/channels", {"team_id": IT["LMOST_IT_TEAM_ID"], "name": name, "display_name": name,
+        ch = self.owner("POST", "/channels", {"team_id": IT["AIMOST_IT_TEAM_ID"], "name": name, "display_name": name,
                                               "type": "O"})
-        for uid in (self.bot_ids[self.asker], IT["LMOST_IT_USER_ID_COLLEAGUE"], IT["LMOST_IT_USER_ID_OUTSIDER"]):
+        for uid in (self.bot_ids[self.asker], IT["AIMOST_IT_USER_ID_COLLEAGUE"], IT["AIMOST_IT_USER_ID_OUTSIDER"]):
             self.owner("POST", f"/channels/{ch['id']}/members", {"user_id": uid})
         q, pid = self.ask("which region?", channel=name, to="colleague")
         # the marks the edge writes on a press (the press itself — tests/test_edge*.py)
-        p = self.mark(pid, "lmost_discuss", {IT["LMOST_IT_USER_ID_COLLEAGUE"]: {"at": 1, "by": "colleague"},
-                                             IT["LMOST_IT_USER_ID_OUTSIDER"]: {"at": 1, "by": "outsider"}})
+        p = self.mark(pid, "aimost_discuss", {IT["AIMOST_IT_USER_ID_COLLEAGUE"]: {"at": 1, "by": "colleague"},
+                                             IT["AIMOST_IT_USER_ID_OUTSIDER"]: {"at": 1, "by": "outsider"}})
         waiting.on_post(self.conn, p)
         waiting.on_post(self.conn, p)
         d = askstore.discussions("it")
@@ -393,12 +393,12 @@ class Real(IsolatedTest):
         self.write_env(f"CO_OWNERS={self.asker}:colleague\n")
         q, pid = self.ask("close T-1?", sink="tracker")
         at = int(time.time() * 1000)
-        p = self.mark(pid, "lmost_answers", {"1": {"option": 1, "by": "colleague",
-                                                   "user_id": IT["LMOST_IT_USER_ID_COLLEAGUE"], "at": at}})
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 1, "by": "colleague",
+                                                   "user_id": IT["AIMOST_IT_USER_ID_COLLEAGUE"], "at": at}})
         waiting.on_post(self.conn, p)
         self.assertEqual((sink.calls, self.events()), ([], []), "a co-owner's answer does not reach a sink")
-        p = self.mark(pid, "lmost_answers", {"1": {"option": 2, "by": "owner",
-                                                   "user_id": IT["LMOST_IT_USER_ID_OWNER"], "at": at + 1}})
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 2, "by": "owner",
+                                                   "user_id": IT["AIMOST_IT_USER_ID_OWNER"], "at": at + 1}})
         waiting.on_post(self.conn, p)
         self.assertEqual(sink.calls, [(q, 1, 2, "close T-1?")])
         self.assertEqual(self.events()[0]["text"], f"answer to {q} item 1 «close T-1?» → tracker: recorded")
@@ -409,7 +409,7 @@ class Real(IsolatedTest):
     def test_sink_refusal_is_posted(self):
         plugins.ANSWER_SINKS["tracker"] = ("gitlab", Sink(refuse=True))
         q, pid = self.ask("close T-2?", sink="tracker")
-        p = self.mark(pid, "lmost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["LMOST_IT_USER_ID_OWNER"],
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["AIMOST_IT_USER_ID_OWNER"],
                                                    "at": int(time.time() * 1000)}})
         waiting.on_post(self.conn, p)
         self.assertEqual(self.events(), [])

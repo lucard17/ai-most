@@ -8,7 +8,7 @@ import textwrap
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import cli_who, commands, confirm, connections, hooks, inbox, plugins, textcheck
+from aimost import cli_who, commands, confirm, connections, hooks, inbox, plugins, textcheck
 
 
 class Fresh(IsolatedTest):
@@ -53,7 +53,7 @@ REFUSER = """
     NAME = "strict"
     VERSION = "1.2"
     KINDS = ("text_check",)
-    from lmost import textcheck
+    from aimost import textcheck
     def no_tbd(d):
         if "TBD" in d.message:
             raise textcheck.Refused(21, "no TBD in posts")
@@ -77,16 +77,16 @@ class Discovery(Fresh):
         self.conn("a", "PLUGINS=strict\n")
         self.conn("b", "PLUGINS_OFF=gitlab\n")
         self.plugin("strict", REFUSER)
-        r = self.lmost("plugins", "--json")
+        r = self.aimost("plugins", "--json")
         self.assertEqual(r.returncode, 0, r.stderr)
         rows = {x["name"]: x for x in json.loads(r.stdout)}
         self.assertEqual(rows["broken"]["state"], "failed (ModuleNotFoundError)")
         self.assertEqual(rows["strict"]["enabled"], "a")
         self.assertEqual(rows["gitlab"]["enabled"], "a")
         self.assertIn("not loaded", r.stderr)
-        r = self.lmost("plugins")
+        r = self.aimost("plugins")
         self.assertIn("strict", r.stdout)
-        self.assertEqual(self.lmost("agents", "--help").returncode, 2, "other commands still run")
+        self.assertEqual(self.aimost("agents", "--help").returncode, 2, "other commands still run")
 
     def test_register_failing_midway_leaves_nothing(self):
         self.plugin("half", """
@@ -156,7 +156,7 @@ class Switching(Fresh):
         body = """
             NAME = "tools"
             KINDS = ("command",)
-            from lmost import commands
+            from aimost import commands
             def register(reg):
                 reg.read_rule("mytool", lambda args, ctx: None)
                 reg.who_source(lambda term: [])
@@ -198,7 +198,7 @@ class SourceAuthority(Fresh):
         """)
         plugins.load()
         import sys
-        reg = sys.modules["lmost_local_plugin_feed"].REG[0]
+        reg = sys.modules["aimost_local_plugin_feed"].REG[0]
         conn = self.conn("a", "PLUGINS=feed\n")
         e = reg.inbox("r", conn).put("deploy now", sender="o", role="owner", via="a")
         self.assertEqual((e["role"], e["kind"], e["from"]), ("peer", "feed", "o"))
@@ -210,17 +210,17 @@ class SourceAuthority(Fresh):
 
 @requires_mattermost
 class RefusalThroughPost(Fresh):
-    """`lmost post` with a local plugin refusing: exit 21, the hint, nothing posted."""
+    """`aimost post` with a local plugin refusing: exit 21, the hint, nothing posted."""
 
     def test_refused_post(self):
         self.plugin("strict", REFUSER)
         (self.tmp / "config" / "connections" / "it.env").write_text(
-            f"URL={IT['LMOST_IT_URL']}\nOWNER=owner\nTEAM=it\nSESSIONS=deployer\nPLUGINS=strict\n")
+            f"URL={IT['AIMOST_IT_URL']}\nOWNER=owner\nTEAM=it\nSESSIONS=deployer\nPLUGINS=strict\n")
         (self.tmp / "config" / "bots" / "it").mkdir(parents=True)
-        (self.tmp / "config" / "bots" / "it" / "deployer").write_text(IT["LMOST_IT_BOT_DEPLOYER"])
-        r = self.lmost("post", "--via", "it", "plan: TBD", env={"LMOST_ROLE": "deployer"})
+        (self.tmp / "config" / "bots" / "it" / "deployer").write_text(IT["AIMOST_IT_BOT_DEPLOYER"])
+        r = self.aimost("post", "--via", "it", "plan: TBD", env={"AIMOST_ROLE": "deployer"})
         self.assertEqual(r.returncode, 21, r.stdout + r.stderr)
         self.assertIn("no TBD in posts", r.stderr)
         self.assertNotIn("posted", r.stdout)
-        r = self.lmost("post", "--via", "it", "plan: ready", env={"LMOST_ROLE": "deployer"})
+        r = self.aimost("post", "--via", "it", "plan: ready", env={"AIMOST_ROLE": "deployer"})
         self.assertEqual(r.returncode, 0, r.stderr)

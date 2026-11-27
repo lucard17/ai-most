@@ -18,7 +18,7 @@ is reachable only through its own outbound connection. Hence a command runs in o
 Commands SHALL be declared in a registry: name, subcommand, arguments, help line, kind, and who may call
 (`owner` / `peer` / `person`, by default `owner`). At the edge the caller is the `owner` of a bot it is the `owner_id` of,
 a `peer` when it is a bot, otherwise a `person`; the bridge checks again with co-owners. Built-in commands and plugin
-commands (see extensions) SHALL use the same registry. `lmost commands register` SHALL print (or, with an admin token, create) the Mattermost slash commands with keyed
+commands (see extensions) SHALL use the same registry. `aimost commands register` SHALL print (or, with an admin token, create) the Mattermost slash commands with keyed
 URLs. `/<command> help` SHALL list only the subcommands the caller may use.
 
 #### Scenario: help for a person who is not an owner
@@ -48,7 +48,7 @@ Test: `test_commands.Unfollow`, `test_commands.BotToken`, `test_edge.Http.test_h
 
 ### Requirement: Bridge and session commands travel as command posts
 For `bridge` and `session` kinds the edge SHALL record the command as a post in the direct message between the caller and
-the target bot (props `lmost_command`: name, args, caller, signed with the bot owner's key) and answer ephemerally
+the target bot (props `aimost_command`: name, args, caller, signed with the bot owner's key) and answer ephemerally
 "sent to @<bot>". The post is written by the edge's bot and carries `caller`, the target `bot`, `team_id`, `channel_id`
 and `root_id` of the call, and `kid` when signed with a per-owner key; the sender role is not in it — the bridge resolves it.
 A command that names no role (`/agent waiting`) goes to the caller's bot with the freshest heartbeat. The owner's bridge

@@ -1,0 +1,14 @@
+# aimost confirm guard: in a turn started by the owner's chat message, a command matching one of these lines
+# runs only with AIMOST_CONFIRM=<id> of a fresh (<= 15 min) unused confirmation (`aimost confirm`).
+# Extended regular expressions, case-insensitive, one per line. `aimost setup` copies it to ~/.config/aimost/confirm-patterns (never over yours); add yours there;
+# the built-in defaults below always apply too.
+\bterraform\s+apply\b
+\btofu\s+apply\b
+\bansible-playbook\b
+\bkubectl\s+(apply|create|delete|replace|patch|scale|rollout|drain|cordon)\b
+\bhelm\s+(install|upgrade|uninstall|rollback|delete)\b
+\bglab\s+mr\s+merge\b
+\bgh\s+pr\s+merge\b
+\bssh\b.*\b(systemctl|service)\s+(restart|stop|start|reload)\b
+\bssh\b.*\bdocker(\s+compose)?\s+(restart|stop|start|up|down|rm|kill)\b
+/api/v2/silences|amtool\s+silence\s+(add|expire|update)

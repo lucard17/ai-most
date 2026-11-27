@@ -12,8 +12,8 @@ import uuid
 import helpers  # noqa: F401  (sys.path)
 from itenv import IT, requires_mattermost
 
-from lmost import mattermost as mm
-from lmost import ws
+from aimost import mattermost as mm
+from aimost import ws
 
 
 class Describe(unittest.TestCase):
@@ -23,7 +23,7 @@ class Describe(unittest.TestCase):
             "embeds": [{"type": "permalink", "data": {"channel_display_name": "ops", "post": {
                 "user_id": "u1", "message": "original", "metadata": {"files": [{"name": "b.txt", "id": "f2"}]}}}}]}}
         out = mm.describe(post, lambda m, p: {"username": "ann"})
-        self.assertIn("📎 files (lmost file <id>): a.png (f1, 4 KB)", out)
+        self.assertIn("📎 files (aimost file <id>): a.png (f1, 4 KB)", out)
         self.assertIn("↪ forwarded (@ann, ops): original", out)
         self.assertIn("in the forwarded post: b.txt (f2)", out)
         self.assertEqual(mm.describe({}), "")
@@ -33,9 +33,9 @@ class Describe(unittest.TestCase):
 class RealServer(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.conn = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
-        cls.bot = IT["LMOST_IT_BOT_DEPLOYER"]
-        cls.owner_tok = IT["LMOST_IT_TOKEN_OWNER"]
+        cls.conn = {"NAME": "it", "URL": IT["AIMOST_IT_URL"]}
+        cls.bot = IT["AIMOST_IT_BOT_DEPLOYER"]
+        cls.owner_tok = IT["AIMOST_IT_TOKEN_OWNER"]
         cls.bot_id = mm.api(cls.conn, "GET", "/users/me", token=cls.bot)["id"]
         cls.owner_id = mm.api(cls.conn, "GET", "/users/me", token=cls.owner_tok)["id"]
         cls.dm = mm.api(cls.conn, "POST", "/channels/direct", [cls.bot_id, cls.owner_id], token=cls.bot)["id"]

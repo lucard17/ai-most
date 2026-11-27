@@ -1,10 +1,10 @@
 # extensions Specification
 
 ## Purpose
-l-most is a small core with extension points. Everything specific to one team — its task tracker, review flow, launcher,
+ai-most is a small core with extension points. Everything specific to one team — its task tracker, review flow, launcher,
 text rules — lives in plugins, so the core stays usable by anyone. One pattern everywhere: a **registry** and an
-**interface**; plugins are found through Python entry points (group `lmost.plugins`) and the local directory
-`~/.config/lmost/plugins/`.
+**interface**; plugins are found through Python entry points (group `aimost.plugins`) and the local directory
+`~/.config/aimost/plugins/`.
 
 | Extension point | Interface (short) | Built-in |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ text rules — lives in plugins, so the core stays usable by anyone. One pattern
 ## Requirements
 
 ### Requirement: Plugins are discovered, listed and switched per connection
-The core SHALL load plugins from entry points and the local plugins directory; `lmost plugins` SHALL list them with kind,
+The core SHALL load plugins from entry points and the local plugins directory; `aimost plugins` SHALL list them with kind,
 version and source. A plugin SHALL be enabled per connection (`PLUGINS=<name>[,<name>]`); built-ins are enabled unless
 listed in `PLUGINS_OFF`. A plugin that fails to load MUST NOT stop the bridge: it is logged and skipped, and nothing it registered before failing
 stays registered. Callbacks that receive a connection run only where the plugin is enabled; slash commands, read rules
@@ -27,7 +27,7 @@ and `who` sources are installed when the plugin is enabled on at least one conne
 
 #### Scenario: a broken plugin
 - **WHEN** a plugin raises on import
-- **THEN** the bridge starts, `lmost plugins` shows it as failed with the error type
+- **THEN** the bridge starts, `aimost plugins` shows it as failed with the error type
 Test: `tests/test_plugins.py` (Discovery)
 
 ### Requirement: Plugins do not bypass authority

@@ -28,7 +28,7 @@ class Wheel(unittest.TestCase):
             t = Path(t)
             for f in ("pyproject.toml", "README.md", "LICENSE"):
                 shutil.copy(ROOT / f, t / f)
-            shutil.copytree(ROOT / "src" / "lmost", t / "src" / "lmost",
+            shutil.copytree(ROOT / "src" / "aimost", t / "src" / "aimost",
                             ignore=shutil.ignore_patterns("__pycache__"))
             cwd = os.getcwd()
             os.chdir(t)
@@ -39,10 +39,10 @@ class Wheel(unittest.TestCase):
                 os.chdir(cwd)
             z = zipfile.ZipFile(t / "dist" / name)
             names = set(z.namelist())
-            data = {str(p.relative_to(ROOT / "src")) for p in (ROOT / "src" / "lmost" / "data").rglob("*") if p.is_file()}
+            data = {str(p.relative_to(ROOT / "src")) for p in (ROOT / "src" / "aimost" / "data").rglob("*") if p.is_file()}
             self.assertTrue(data and data <= names, data - names)
             ep = next(n for n in names if n.endswith("entry_points.txt"))
-            self.assertIn("lmost = lmost.cli:main", z.read(ep).decode())
+            self.assertIn("aimost = aimost.cli:main", z.read(ep).decode())
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 schema: change
 
 context: |
-  OpenSpec of l-most, a bridge between Claude Code / Codex sessions and a Mattermost server.
+  OpenSpec of ai-most, a bridge between Claude Code / Codex sessions and a Mattermost server.
   specs/<area>/spec.md is the canon of behaviour: requirements with scenarios and the tests that hold them.
   Write in English. Keep technical names, commands, config keys and OpenSpec markers as they are.
   A behaviour change is a change in changes/<name> (proposal.md, design.md with the reasoning, spec delta, tasks.md);

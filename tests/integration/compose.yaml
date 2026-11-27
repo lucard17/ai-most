@@ -1,6 +1,6 @@
 # Disposable Mattermost for integration tests. Data lives in tmpfs: `down.sh` (or a reboot) wipes everything.
 # Bound to 127.0.0.1 only. Start: tests/integration/up.sh  Stop: tests/integration/down.sh
-name: lmost-it
+name: aimost-it
 services:
   db:
     image: postgres:17-alpine
@@ -18,13 +18,13 @@ services:
     image: mattermost/mattermost-team-edition:12.1.0
     mem_limit: 2g
     depends_on: {db: {condition: service_healthy}}
-    ports: ["127.0.0.1:${LMOST_IT_PORT:-8067}:8065"]
+    ports: ["127.0.0.1:${AIMOST_IT_PORT:-8067}:8065"]
     tmpfs: ["/mattermost/data:uid=2000,gid=2000", "/mattermost/logs:uid=2000,gid=2000",
             "/mattermost/plugins:uid=2000,gid=2000", "/mattermost/client/plugins:uid=2000,gid=2000"]
     environment:
       MM_SQLSETTINGS_DRIVERNAME: postgres
       MM_SQLSETTINGS_DATASOURCE: postgres://mmuser:mmuser-it@db:5432/mattermost?sslmode=disable&connect_timeout=10
-      MM_SERVICESETTINGS_SITEURL: http://127.0.0.1:${LMOST_IT_PORT:-8067}
+      MM_SERVICESETTINGS_SITEURL: http://127.0.0.1:${AIMOST_IT_PORT:-8067}
       MM_SERVICESETTINGS_ENABLELOCALMODE: "true"
       MM_SERVICESETTINGS_ENABLEBOTACCOUNTCREATION: "true"
       MM_SERVICESETTINGS_ENABLEUSERACCESSTOKENS: "true"
@@ -39,17 +39,17 @@ services:
       test: ["CMD", "/mattermost/bin/mmctl", "--local", "system", "status"]   # the image has no shell or curl
       interval: 3s
       retries: 60
-  # The edge (lmost edge serve) from this checkout's src, as Mattermost sees it: http://edge:8767 (the name is in
+  # The edge (aimost edge serve) from this checkout's src, as Mattermost sees it: http://edge:8767 (the name is in
   # AllowedUntrustedInternalConnections above). Started by edge-up.sh once the world exists (profile "edge"), so that
   # starting or restarting it never touches the Mattermost data. Re-executes itself when src changes.
   edge:
     profiles: [edge]
     image: python:3.12-alpine
     mem_limit: 128m
-    command: ["python", "-u", "-m", "lmost", "edge", "serve"]
+    command: ["python", "-u", "-m", "aimost", "edge", "serve"]
     volumes: ["../../src:/src:ro"]
     tmpfs: [/edge-data]
-    ports: ["127.0.0.1:${LMOST_IT_EDGE_PORT:-8068}:8767"]
+    ports: ["127.0.0.1:${AIMOST_IT_EDGE_PORT:-8068}:8767"]
     env_file: [{path: edge.env, required: false}]
     environment:
       PYTHONPATH: /src
@@ -63,4 +63,4 @@ networks:
   default:
     # Explicit small subnet: hosts with many Docker networks run out of default address pools.
     ipam:
-      config: [{subnet: "${LMOST_IT_SUBNET:-10.217.67.0/28}"}]
+      config: [{subnet: "${AIMOST_IT_SUBNET:-10.217.67.0/28}"}]

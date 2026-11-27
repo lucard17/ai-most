@@ -29,7 +29,7 @@ Test: `tests/test_activity.py`
 
 ### Requirement: Bridge heartbeat
 The bridge SHALL write a heartbeat at least once a minute into a place the edge can read without the owner's machine: the
-preference `lmost_heartbeat/state` of each role bot, written with that bot's own token (a bot may not patch its own user
+preference `aimost_heartbeat/state` of each role bot, written with that bot's own token (a bot may not patch its own user
 props, but may write its own preferences; the edge's admin bot reads them, other people cannot), a JSON value with `seen`
 — time, `state` — running / idle / waiting / not running, `role`, unread count, last turn time. A missing heartbeat MUST NOT
 change the bots' visible status by itself; the edge interprets its age.
@@ -51,16 +51,16 @@ Oracle: `chat-link-multibot.test.sh`
 
 ### Requirement: One bot per role
 Every role SHALL have its own bot and SHALL post with its token: a person's bot is `<OWNER>-<role>` or a short prefix of the
-person's choice, shared bots have no prefix; without `OWNER`, `lmost bot add` refuses. Posting for a role with another
+person's choice, shared bots have no prefix; without `OWNER`, `aimost bot add` refuses. Posting for a role with another
 bot's token or through a webhook with a substituted name MUST NOT happen.
 
 #### Scenario: the role's bot is deactivated
-- **WHEN** `lmost bot add` for a role whose bot is deactivated
+- **WHEN** `aimost bot add` for a role whose bot is deactivated
 - **THEN** the bot is enabled, the token is new and written to a file, not printed
 Test: `tests/test_botadmin.py`
 
 ### Requirement: Bots for other people are created by a chat admin
-Bots for other people SHALL be created by a chat admin (`lmost bot add --owner <login>`, description required): the bot is
+Bots for other people SHALL be created by a chat admin (`aimost bot add --owner <login>`, description required): the bot is
 assigned to that person, no token is issued by the admin — the owner takes one with `/bot-token <bot>` (commands spec) —
 and the admin's own connection is untouched. An `--owner` that is a bot or does not exist (exit code 6), silently moving
 a bot owned by someone else (exit code 7), self-service accounts, and turning a person's account into a bot (exit code 4)

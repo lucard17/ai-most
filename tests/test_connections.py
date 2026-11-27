@@ -12,16 +12,16 @@ from pathlib import Path
 
 from helpers import IsolatedTest
 
-from lmost import connections as cn
-from lmost import paths
+from aimost import connections as cn
+from aimost import paths
 
 
 class Conf(IsolatedTest):
     def setUp(self):
         super().setUp()
         cn._cwd_mem.clear()
-        os.environ["LMOST_CWD_CACHE"] = str(self.tmp / "cwd-cache.json")
-        self.addCleanup(os.environ.pop, "LMOST_CWD_CACHE", None)
+        os.environ["AIMOST_CWD_CACHE"] = str(self.tmp / "cwd-cache.json")
+        self.addCleanup(os.environ.pop, "AIMOST_CWD_CACHE", None)
         self.claude = Path(os.environ["HOME"]) / ".claude"
 
     def conn(self, name, **kv):
@@ -136,7 +136,7 @@ class SessionCwd(Conf):
             for _ in range(120):
                 f.write(chunk)
             f.write(json.dumps({"type": "custom-title", "customTitle": "big"}, separators=(",", ":")) + "\n")
-        code = ("import resource, sys; sys.path.insert(0, sys.argv[1]); from lmost import connections as c; "
+        code = ("import resource, sys; sys.path.insert(0, sys.argv[1]); from aimost import connections as c; "
                 "print(c.session_cwd('big'), resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024)")
         from helpers import SRC
         out = subprocess.run([sys.executable, "-c", code, SRC], capture_output=True, text=True, env=dict(os.environ)).stdout

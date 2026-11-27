@@ -6,7 +6,7 @@ import unittest
 
 from helpers import IsolatedTest
 
-from lmost import paths, textcheck as tc
+from aimost import paths, textcheck as tc
 
 
 class QuestionsAsText(unittest.TestCase):

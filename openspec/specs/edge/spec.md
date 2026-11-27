@@ -2,14 +2,14 @@
 
 ## Purpose
 Mattermost buttons, dialogs and slash commands call a URL the chat server can reach, and the owner's machine is not
-reachable from the server. So the endpoint — `lmost edge` — runs next to the chat server (a container in its compose). It
+reachable from the server. So the endpoint — `aimost edge` — runs next to the chat server (a container in its compose). It
 only records the choice in the properties of the post itself; what counts is decided by the owner's bridge, which sees the
 change over its outbound connection.
 
 ## Requirements
 
 ### Requirement: The edge records presses next to the server
-The edge SHALL record a choice in the properties of the question or confirmation post (`props.lmost_answers`); it SHALL
+The edge SHALL record a choice in the properties of the question or confirmation post (`props.aimost_answers`); it SHALL
 take the addressees from the button context and MUST NOT record a press by a non-addressee. Whether an answer counts SHALL
 be decided by the owner's bridge.
 

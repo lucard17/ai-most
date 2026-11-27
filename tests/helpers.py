@@ -13,9 +13,9 @@ SRC = str(Path(__file__).resolve().parent.parent / "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-ENV_KEYS = ("HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "LMOST_CONFIG_DIR", "LMOST_STATE_DIR", "LMOST_INBOX_DIR",
-            "LMOST_MARKS_DIR", "LMOST_LINK_STATE_DIR", "LMOST_WAKE_LIST", "LMOST_ROLE", "LMOST_URGENT_KINDS",
-            "LMOST_EVENT_MAX", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CONFIG_DIR")
+ENV_KEYS = ("HOME", "XDG_CONFIG_HOME", "XDG_STATE_HOME", "AIMOST_CONFIG_DIR", "AIMOST_STATE_DIR", "AIMOST_INBOX_DIR",
+            "AIMOST_MARKS_DIR", "AIMOST_LINK_STATE_DIR", "AIMOST_WAKE_LIST", "AIMOST_ROLE", "AIMOST_URGENT_KINDS",
+            "AIMOST_EVENT_MAX", "CLAUDE_CODE_SESSION_ID", "CLAUDE_CONFIG_DIR")
 
 
 class IsolatedTest(unittest.TestCase):
@@ -26,8 +26,8 @@ class IsolatedTest(unittest.TestCase):
         for k in ENV_KEYS:
             os.environ.pop(k, None)
         os.environ["HOME"] = str(self.tmp / "home")
-        os.environ["LMOST_STATE_DIR"] = str(self.tmp / "state")
-        os.environ["LMOST_CONFIG_DIR"] = str(self.tmp / "config")
+        os.environ["AIMOST_STATE_DIR"] = str(self.tmp / "state")
+        os.environ["AIMOST_CONFIG_DIR"] = str(self.tmp / "config")
         (self.tmp / "home").mkdir()
 
     def tearDown(self) -> None:
@@ -38,6 +38,6 @@ class IsolatedTest(unittest.TestCase):
                 os.environ[k] = v
         self._tmp.cleanup()
 
-    def lmost(self, *args: str, env: dict = None) -> subprocess.CompletedProcess:
+    def aimost(self, *args: str, env: dict = None) -> subprocess.CompletedProcess:
         e = dict(os.environ, PYTHONPATH=SRC, **(env or {}))
-        return subprocess.run([sys.executable, "-m", "lmost", *args], capture_output=True, text=True, env=e)
+        return subprocess.run([sys.executable, "-m", "aimost", *args], capture_output=True, text=True, env=e)

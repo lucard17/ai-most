@@ -11,7 +11,7 @@ from pathlib import Path
 
 from helpers import IsolatedTest
 
-from lmost import inbox, paths
+from aimost import inbox, paths
 
 
 class InboxBasics(IsolatedTest):
@@ -22,19 +22,19 @@ class InboxBasics(IsolatedTest):
         self.assertEqual(box.count(), 2)
         box.unread()
         self.assertEqual(box.count(), 2, "unread without ack keeps the cursor")
-        out = self.lmost("inbox", "unread", "harness", "--ack").stdout
+        out = self.aimost("inbox", "unread", "harness", "--ack").stdout
         self.assertEqual(box.count(), 0)
         self.assertIn("owner1 [answer] thread=th1: answer one", out)
         self.assertIn("other-role [message]: message two", out)
 
     def test_bad_name_exit_2(self):
-        r = self.lmost("inbox", "put", "bad/name", "x")
+        r = self.aimost("inbox", "put", "bad/name", "x")
         self.assertEqual(r.returncode, 2)
         with self.assertRaises(inbox.InboxError):
             inbox.Inbox("bad/name")
 
     def test_empty_text_refused(self):
-        self.assertEqual(self.lmost("inbox", "put", "harness", "").returncode, 2)
+        self.assertEqual(self.aimost("inbox", "put", "harness", "").returncode, 2)
 
     def test_files_are_private(self):
         inbox.Inbox("harness").put("x")
@@ -51,9 +51,9 @@ class InboxBasics(IsolatedTest):
     def test_long_event_truncated_show_full(self):
         box = inbox.Inbox("harness")
         box.put("я" * 1500)
-        out = self.lmost("inbox", "unread", "harness", "--ack", env={"LMOST_EVENT_MAX": "1000"}).stdout
-        self.assertIn("(+500 chars; full: lmost inbox show harness 1)", out)
-        full = json.loads(self.lmost("inbox", "show", "harness", "1").stdout)
+        out = self.aimost("inbox", "unread", "harness", "--ack", env={"AIMOST_EVENT_MAX": "1000"}).stdout
+        self.assertIn("(+500 chars; full: aimost inbox show harness 1)", out)
+        full = json.loads(self.aimost("inbox", "show", "harness", "1").stdout)
         self.assertEqual(len(full["text"]), 1500)
 
     def test_sender_shown_with_bot_handle(self):
@@ -63,7 +63,7 @@ class InboxBasics(IsolatedTest):
         box = inbox.Inbox("bh")
         box.put("hello", sender="hash")
         box.put("and you", sender="tracker")
-        out = self.lmost("inbox", "unread", "bh").stdout
+        out = self.aimost("inbox", "unread", "bh").stdout
         self.assertIn(" hash (@me-hash) [message]", out)
         self.assertNotIn("(@tracker)", out, "no repeat when the handle equals the name")
 
@@ -82,15 +82,15 @@ class Urgency(IsolatedTest):
         box = inbox.Inbox("r")
         box.put("MR note", sender="gitlab", kind="gitlab")
         self.assertFalse(box.urgent(), "a source event is not urgent")
-        self.assertEqual(self.lmost("inbox", "urgent", "r").returncode, 1)
+        self.assertEqual(self.aimost("inbox", "urgent", "r").returncode, 1)
         box.put("from a person")
         self.assertTrue(box.urgent())
-        self.assertEqual(self.lmost("inbox", "urgent", "r").returncode, 0)
+        self.assertEqual(self.aimost("inbox", "urgent", "r").returncode, 0)
 
     def test_urgent_kinds_configurable(self):
         box = inbox.Inbox("r")
         box.put("x", kind="gitlab")
-        self.assertEqual(self.lmost("inbox", "urgent", "r", env={"LMOST_URGENT_KINDS": "gitlab"}).returncode, 0)
+        self.assertEqual(self.aimost("inbox", "urgent", "r", env={"AIMOST_URGENT_KINDS": "gitlab"}).returncode, 0)
 
 
 class PeerTurn(IsolatedTest):
@@ -112,9 +112,9 @@ class PeerTurn(IsolatedTest):
 
     def test_peer_pending(self):
         self.assertEqual(self.box.peer_pending(), (1, ["deployer"]))
-        self.assertEqual(self.lmost("inbox", "peer-pending", "harness").stdout.strip(), "1 deployer")
+        self.assertEqual(self.aimost("inbox", "peer-pending", "harness").stdout.strip(), "1 deployer")
         self.box.unread(ack=True)
-        self.assertEqual(self.lmost("inbox", "peer-pending", "harness").returncode, 1)
+        self.assertEqual(self.aimost("inbox", "peer-pending", "harness").returncode, 1)
 
     def test_mixed_batch_sets_peer_mark(self):
         self.box.unread(ack=True, before_peer=True)
@@ -160,17 +160,17 @@ class Subscriptions(IsolatedTest):
 
     def test_mute_once_follow_clears_mute(self):
         box = inbox.Inbox("harness")
-        self.lmost("inbox", "mute", "harness", self.TH)
-        self.lmost("inbox", "mute", "harness", self.TH)
+        self.aimost("inbox", "mute", "harness", self.TH)
+        self.aimost("inbox", "mute", "harness", self.TH)
         self.assertEqual(box.threads("mute"), [self.TH])
-        self.lmost("inbox", "follow", "harness", self.TH)
+        self.aimost("inbox", "follow", "harness", self.TH)
         self.assertEqual(box.threads("mute"), [])
         self.assertEqual(box.threads("follow"), [self.TH])
-        self.lmost("inbox", "unfollow", "harness", self.TH)
+        self.aimost("inbox", "unfollow", "harness", self.TH)
         self.assertEqual(box.threads("follow"), [])
 
     def test_not_a_thread_id(self):
-        self.assertEqual(self.lmost("inbox", "mute", "harness", "x;rm").returncode, 2)
+        self.assertEqual(self.aimost("inbox", "mute", "harness", "x;rm").returncode, 2)
 
 
 class SessionMode(IsolatedTest):
@@ -201,7 +201,7 @@ class SessionMode(IsolatedTest):
         self.assertEqual(inbox.mode_of("r", has_bot=lambda r: False), ("cli", "default"))
 
     def test_put_into_cli_session_tells_sender(self):
-        r = self.lmost("inbox", "put", "mp-harness", "--from", "hash", "hi")
+        r = self.aimost("inbox", "put", "mp-harness", "--from", "hash", "hi")
         self.assertEqual(r.returncode, 0)
         self.assertIn("mp-harness is in CLI mode", r.stderr)
         self.assertEqual(inbox.Inbox("mp-harness").count(), 1)
@@ -216,13 +216,13 @@ class SessionName(IsolatedTest):
             json.dumps({"type": "custom-title", "customTitle": "old"}) + "\n"
             + json.dumps({"type": "user", "message": "custom-title in text"}) + "\n"
             + json.dumps({"type": "custom-title", "customTitle": "harness"}) + "\n")
-        self.assertEqual(self.lmost("inbox", "name", sid).stdout.strip(), "harness")
+        self.assertEqual(self.aimost("inbox", "name", sid).stdout.strip(), "harness")
 
     def test_role_env_wins(self):
-        self.assertEqual(self.lmost("inbox", "name", env={"LMOST_ROLE": "codex-role"}).stdout.strip(), "codex-role")
+        self.assertEqual(self.aimost("inbox", "name", env={"AIMOST_ROLE": "codex-role"}).stdout.strip(), "codex-role")
 
     def test_unknown_session_exit_1(self):
-        self.assertEqual(self.lmost("inbox", "name", "nope").returncode, 1)
+        self.assertEqual(self.aimost("inbox", "name", "nope").returncode, 1)
 
 
 if __name__ == "__main__":

@@ -10,8 +10,8 @@ import time
 
 from helpers import IsolatedTest
 
-from lmost import inbox, plugins, textcheck
-from lmost_gitlab import glab, hook, mrlinks, watch
+from aimost import inbox, plugins, textcheck
+from aimost_gitlab import glab, hook, mrlinks, watch
 
 FAKE = r'''#!%s
 import json, os, sys
@@ -37,14 +37,14 @@ class Glab(IsolatedTest):
 
     def setUp(self):
         super().setUp()
-        self._saved_env = {k: os.environ.get(k) for k in ("LMOST_GLAB_BIN", "FAKE_GLAB_DB", "LMOST_GITLAB_GROUP")}
+        self._saved_env = {k: os.environ.get(k) for k in ("AIMOST_GLAB_BIN", "FAKE_GLAB_DB", "AIMOST_GITLAB_GROUP")}
         b = self.tmp / "glab"
         b.write_text(FAKE)
         b.chmod(b.stat().st_mode | stat.S_IXUSR)
         self.db_file = self.tmp / "glab.json"
         self.db = {}
         self.flush()
-        os.environ.update({"LMOST_GLAB_BIN": str(b), "FAKE_GLAB_DB": str(self.db_file)})
+        os.environ.update({"AIMOST_GLAB_BIN": str(b), "FAKE_GLAB_DB": str(self.db_file)})
 
     def tearDown(self):
         for k, v in self._saved_env.items():
@@ -112,7 +112,7 @@ class Links(Glab):
         self.assertIn("[backend!12](", d.ask["parts"][0]["text"])
 
     def test_no_glab_nothing(self):
-        os.environ["LMOST_GLAB_BIN"] = str(self.tmp / "missing")
+        os.environ["AIMOST_GLAB_BIN"] = str(self.tmp / "missing")
         d = self.draft("merged !12")
         self.assertEqual(d.message, "merged !12")
 
@@ -174,7 +174,7 @@ class Watch(Glab):
     def test_ref_needs_group(self):
         with self.assertRaises(watch.WatchError):
             watch.add("backend!12", self.ROLE)
-        os.environ["LMOST_GITLAB_GROUP"] = "grp"
+        os.environ["AIMOST_GITLAB_GROUP"] = "grp"
         self.assertEqual(watch.add("backend!12", self.ROLE), "backend!12")
         self.assertEqual(watch.links()["backend!12"]["project"], "grp/backend")
 
@@ -206,7 +206,7 @@ class Watch(Glab):
         self.assertEqual(len(self.calls()), n, "not asked at all")
 
     def test_cli_once_without_glab_is_silent(self):
-        r = self.lmost("gitlab", "once", env={"LMOST_GLAB_BIN": str(self.tmp / "missing")})
+        r = self.aimost("gitlab", "once", env={"AIMOST_GLAB_BIN": str(self.tmp / "missing")})
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "", ""))
 
 
@@ -215,7 +215,7 @@ class Hook(Glab):
         super().setUp()
         paths_inbox = self.tmp / "state" / "inbox"
         paths_inbox.mkdir(parents=True)
-        os.environ["LMOST_ROLE"] = "author"
+        os.environ["AIMOST_ROLE"] = "author"
         self.spawned = []
 
     def run_hook(self, cmd, out, **extra):
@@ -231,8 +231,8 @@ class Hook(Glab):
 
     def test_wrapper_by_pattern(self):
         self.assertIsNone(self.run_hook("my-mr --title x", self.URL))
-        os.environ["LMOST_MR_CREATE_PATTERNS"] = "my-mr"
-        self.addCleanup(os.environ.pop, "LMOST_MR_CREATE_PATTERNS", None)
+        os.environ["AIMOST_MR_CREATE_PATTERNS"] = "my-mr"
+        self.addCleanup(os.environ.pop, "AIMOST_MR_CREATE_PATTERNS", None)
         self.assertEqual(self.run_hook("FOO=1 ./bin/my-mr --title x", self.URL), self.URL)
 
     def test_success_is_the_url_not_the_exit_code(self):
@@ -244,7 +244,7 @@ class Hook(Glab):
         os.rmdir(self.tmp / "state" / "inbox")
         self.assertIsNone(self.run_hook("glab mr create", self.URL))
         (self.tmp / "state" / "inbox").mkdir()
-        os.environ["LMOST_GLAB_BIN"] = str(self.tmp / "missing")
+        os.environ["AIMOST_GLAB_BIN"] = str(self.tmp / "missing")
         self.assertIsNone(self.run_hook("glab mr create", self.URL))
 
     def test_cli_hook_spawns_add_in_background(self):
@@ -257,7 +257,7 @@ class Hook(Glab):
                           "tool_response": {"stdout": self.URL}})
         import subprocess
         e = dict(os.environ, PYTHONPATH=os.path.join(os.path.dirname(__file__), "..", "src"))
-        p = subprocess.run([sys.executable, "-m", "lmost", "gitlab", "hook"], input=inp, capture_output=True,
+        p = subprocess.run([sys.executable, "-m", "aimost", "gitlab", "hook"], input=inp, capture_output=True,
                            text=True, env=e)
         self.assertEqual((p.returncode, p.stdout, p.stderr), (0, "", ""))
         for _ in range(50):
@@ -271,13 +271,13 @@ class Who(Glab):
     def test_search(self):
         self.db["users?search=ann%20lee&per_page=20"] = [{"username": "alee", "name": "Ann Lee"}]
         self.flush()
-        from lmost_gitlab import who
+        from aimost_gitlab import who
         self.assertEqual(who.search("ann lee"), [{"source": "GitLab", "login": "alee", "name": "Ann Lee"}])
 
 
 class Available(IsolatedTest):
     def test_glab_needs_a_config_unless_given(self):
-        saved = os.environ.pop("LMOST_GLAB_BIN", None)
+        saved = os.environ.pop("AIMOST_GLAB_BIN", None)
         try:
             bindir = self.tmp / "bin"
             bindir.mkdir()
@@ -295,14 +295,14 @@ class Available(IsolatedTest):
                 os.environ["PATH"] = path
         finally:
             if saved is not None:
-                os.environ["LMOST_GLAB_BIN"] = saved
+                os.environ["AIMOST_GLAB_BIN"] = saved
 
 
 class Timer(Glab):
-    """`lmost setup` gets the MR-watch timer from the plugin only where glab can be used."""
+    """`aimost setup` gets the MR-watch timer from the plugin only where glab can be used."""
 
     def units(self):
-        from lmost import cli_who, install
+        from aimost import cli_who, install
         saved, loaded, pl = list(install.SERVICES), plugins._loaded, dict(plugins._plugins)
         tc, ws = list(textcheck.TEXT_CHECKS), list(cli_who.WHO_SOURCES)
         try:
@@ -319,6 +319,6 @@ class Timer(Glab):
             plugins._loaded = loaded
 
     def test_timer_only_with_glab(self):
-        self.assertEqual(self.units(), ["lmost-gitlab.service", "lmost-gitlab.timer"])
-        os.environ["LMOST_GLAB_BIN"] = str(self.tmp / "no-such-glab")
+        self.assertEqual(self.units(), ["aimost-gitlab.service", "aimost-gitlab.timer"])
+        os.environ["AIMOST_GLAB_BIN"] = str(self.tmp / "no-such-glab")
         self.assertEqual(self.units(), [])

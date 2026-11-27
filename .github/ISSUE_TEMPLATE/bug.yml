@@ -13,4 +13,4 @@ body:
   - type: input
     attributes:
       label: Versions
-      description: "`lmost --version`, Python, Mattermost server, Claude Code / Codex"
+      description: "`aimost --version`, Python, Mattermost server, Claude Code / Codex"

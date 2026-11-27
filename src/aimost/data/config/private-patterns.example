@@ -1,0 +1,5 @@
+# aimost post: patterns of private matters (extended regular expressions, case-insensitive, one per line). On a
+# connection with PRIVATE_GUARD=on a post where one matches is not sent (exit code 5). Everyone keeps their own: names of
+# personal machines and servers, personal projects and paths — what a work chat does not need to hear about.
+# File: ~/.config/aimost/private-patterns (`aimost setup` creates it from this example, never over yours).
+# \bmy-home-server\b

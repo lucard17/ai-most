@@ -1,0 +1,14 @@
+[Unit]
+Description=aimost link — Mattermost posts into the sessions' inboxes, receipts, heartbeat
+After=network-online.target
+
+[Service]
+ExecStart=@PYTHON@ -m aimost link serve
+Environment=PATH=@PATH@
+Environment=PYTHONPATH=@PYTHONPATH@
+Restart=always
+RestartSec=15
+MemoryMax=256M
+
+[Install]
+WantedBy=default.target

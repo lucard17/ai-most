@@ -11,7 +11,7 @@ import urllib.request
 from fakemm import FakeMM
 from helpers import IsolatedTest
 
-from lmost import commands, confirm, questions, edge as edgemod
+from aimost import commands, confirm, questions, edge as edgemod
 
 SPEC2 = {"context": "c", "parts": [{"title": "p1", "text": "", "options": ["yes", "no"]},
                                    {"title": "p2", "text": "", "options": ["yes", "no"]}]}
@@ -31,7 +31,7 @@ class World(IsolatedTest):
         mm.user("BB", "bob-checker", bot=True, owner="UB")
         mm.user("BK", "key", bot=True, owner="UB")
         for pid, uid in (("PA", "BA"), ("PB", "BB"), ("PH", "UH")):
-            mm.post(pid, uid, {"lmost_question": "ask-1", "lmost_ask": json.loads(json.dumps(SPEC2)), "agent": "deployer"})
+            mm.post(pid, uid, {"aimost_question": "ask-1", "aimost_ask": json.loads(json.dumps(SPEC2)), "agent": "deployer"})
         self.lines = []
         self.keys_file = self.tmp / "data" / "edge-keys.json"
 
@@ -85,7 +85,7 @@ class OwnerKeys(World):
                 for a in att.get("actions", []) if a["integration"]["context"]["part"] == 2][0]
         self.assertEqual(ctx2["kid"], kid, "redrawn buttons carry the same owner's key")
         self.assertNotIn('"s3"', json.dumps(r), "no shared key in the redrawn post")
-        self.assertEqual(r["update"]["props"]["lmost_answers"]["1"]["option"], 1)
+        self.assertEqual(r["update"]["props"]["aimost_answers"]["1"]["option"], 1)
         self.assertEqual(r["update"]["props"]["agent"], "deployer")
         urls = {a["integration"]["url"] for att in r["update"]["props"]["attachments"] for a in att.get("actions", [])}
         self.assertEqual(urls, {"http://edge:1/action"}, "the same action URL as the bridge side draws")
@@ -198,7 +198,7 @@ class Dialog(World):
         forged = dict(st, post_id="PB")
         self.assertEqual(e.handle_dialog({"user_id": "UA", "state": json.dumps(forged),
                                           "submission": {"answer": "x"}})[0], 403)
-        self.assertNotIn("lmost_answers", self.mm.posts["PB"]["props"], "PB untouched by the forgery")
+        self.assertNotIn("aimost_answers", self.mm.posts["PB"]["props"], "PB untouched by the forgery")
         unsigned = {k: v for k, v in st.items() if k != "sig"}
         self.assertEqual(e.handle_dialog({"user_id": "UA", "state": json.dumps(unsigned)})[0], 403)
         old = dict(unsigned, secret="s3")
@@ -206,8 +206,8 @@ class Dialog(World):
         code, r = e.handle_dialog({"user_id": "UA", "state": json.dumps(st), "submission": {"answer": " mine "}})
         self.assertEqual((code, r), (200, {}))
         props = self.mm.posts["PA"]["props"]
-        self.assertEqual(props["lmost_answers"]["1"]["text"], "mine")
-        self.assertEqual(props["lmost_ask"], SPEC2, "the spec is written back: a patch replaces props whole")
+        self.assertEqual(props["aimost_answers"]["1"]["text"], "mine")
+        self.assertEqual(props["aimost_ask"], SPEC2, "the spec is written back: a patch replaces props whole")
         self.assertIn("Answered 1 of 2", self.mm.posts["PA"]["message"])
         self.assertFalse(any("s3" in ln for ln in self.lines))
 
@@ -216,13 +216,13 @@ class Dialog(World):
         st = self.open(e)["state"]
         self.assertIn("empty", e.handle_dialog({"user_id": "UA", "state": st, "submission": {"answer": " "}})[1]
                       ["errors"]["answer"])
-        self.mm.posts["PA"]["props"]["lmost_cancelled"] = {"why": "moot"}
+        self.mm.posts["PA"]["props"]["aimost_cancelled"] = {"why": "moot"}
         self.assertIn("withdrawn: moot", e.handle_dialog({"user_id": "UA", "state": st, "submission": {"answer": "x"}})[1]
                       ["errors"]["answer"])
 
     def test_mobile_hint(self):
         e = self.edge(EDGE_SECRET="s3")
-        self.mm.posts["PA"]["props"]["lmost_ask"]["parts"][0]["text"] = "why it matters"
+        self.mm.posts["PA"]["props"]["aimost_ask"]["parts"][0]["text"] = "why it matters"
         code, r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "custom": 1})
         dlg = self.mm.requests("POST", "/actions/dialogs/open")[-1][2]["dialog"]
         self.assertTrue(dlg["introduction_text"].startswith("why it matters"))
@@ -239,16 +239,16 @@ class Dialog(World):
 class Addressees(World):
     def test_only_addressees_press(self):
         e = self.edge(EDGE_SECRET="s3")
-        self.mm.posts["PA"]["props"]["lmost_ask"]["to"] = ["bob"]
+        self.mm.posts["PA"]["props"]["aimost_ask"]["to"] = ["bob"]
         code, r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "option": 1}, user="UA")
         self.assertIn("only from the addressee", r["ephemeral_text"])
         self.assertNotIn("update", r)
         code, r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "option": 2}, user="UB")
-        self.assertEqual(r["update"]["props"]["lmost_answers"]["1"]["by"], "bob")
+        self.assertEqual(r["update"]["props"]["aimost_answers"]["1"]["by"], "bob")
 
     def test_solved_question_reads_question_to_answer(self):
         e = self.edge(EDGE_SECRET="s3")
-        self.mm.posts["PA"]["props"]["lmost_answers"] = {"1": {"option": 1, "by": "alice"}}
+        self.mm.posts["PA"]["props"]["aimost_answers"] = {"1": {"option": 1, "by": "alice"}}
         code, r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 2, "option": 2})
         self.assertEqual(r["update"]["message"], "✅ c\np1 → **yes** — @alice\np2 → **no** — @alice")
 
@@ -259,13 +259,13 @@ class Addressees(World):
         r = self.press(e, "PA", ctx, user="UH")[1]
         self.assertIn("Confirmed by @alice or @bob", r["ephemeral_text"])
         r = self.press(e, "PA", ctx, user="UB")[1]
-        self.assertEqual(r["update"]["props"]["lmost_confirm"]["by"], "bob")
+        self.assertEqual(r["update"]["props"]["aimost_confirm"]["by"], "bob")
         self.assertIn("✅ confirmed — @bob", r["update"]["message"])
         self.assertEqual(r["update"]["props"]["attachments"], [])
 
     def test_withdrawn_question_is_not_answered(self):
         e = self.edge(EDGE_SECRET="s3")
-        self.mm.posts["PA"]["props"]["lmost_cancelled"] = {"why": "done elsewhere"}
+        self.mm.posts["PA"]["props"]["aimost_cancelled"] = {"why": "done elsewhere"}
         r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "option": 1})[1]
         self.assertIn("withdrawn: done elsewhere", r["ephemeral_text"])
 
@@ -274,24 +274,24 @@ class Marks(World):
     def test_discuss_waiting_drop_and_snooze(self):
         e = self.edge(EDGE_SECRET="s3")
         self.mm.posts["PA"]["props"]["keep"] = "x"
-        self.mm.posts["PA"]["props"]["lmost_pin"] = "rules"
+        self.mm.posts["PA"]["props"]["aimost_pin"] = "rules"
         r = self.press(e, "PA", {"kind": "discuss", "q": "ask-1", "secret": "s3"})[1]
         self.assertIn("opens in your DM", r["ephemeral_text"])
         props = self.mm.posts["PA"]["props"]
-        self.assertEqual(props["lmost_discuss"]["UA"]["by"], "alice")
+        self.assertEqual(props["aimost_discuss"]["UA"]["by"], "alice")
         self.assertEqual(props["keep"], "x", "other props kept")
         self.assertIn("already open", self.press(e, "PA", {"kind": "discuss", "q": "ask-1", "secret": "s3"})[1]
                       ["ephemeral_text"])
         # a later answer keeps the discussion marks
         r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "option": 1})[1]
-        self.assertIn("UA", r["update"]["props"]["lmost_discuss"])
-        self.assertEqual(r["update"]["props"]["lmost_pin"], "rules", "a redraw keeps the pin key")
+        self.assertIn("UA", r["update"]["props"]["aimost_discuss"])
+        self.assertEqual(r["update"]["props"]["aimost_pin"], "rules", "a redraw keeps the pin key")
         self.press(e, "PA", {"kind": "waiting-drop", "q": "ask-9", "asker": "devops", "secret": "s3"})
-        self.assertEqual(self.mm.posts["PA"]["props"]["lmost_waiting_drop"]["ask-9"]["asker"], "devops")
+        self.assertEqual(self.mm.posts["PA"]["props"]["aimost_waiting_drop"]["ask-9"]["asker"], "devops")
         self.assertIn("No period", self.press(e, "PA", {"kind": "waiting-snooze", "secret": "s3"})[1]["ephemeral_text"])
         r = self.press(e, "PA", {"kind": "waiting-snooze", "key": "ask-9", "selected_option": "2h", "secret": "s3"})[1]
         self.assertTrue(r["ephemeral_text"].startswith("Snoozing"))
-        self.assertEqual(self.mm.posts["PA"]["props"]["lmost_waiting_snooze"]["ask-9"]["value"], "2h")
+        self.assertEqual(self.mm.posts["PA"]["props"]["aimost_waiting_snooze"]["ask-9"]["value"], "2h")
 
 
 class Http(World):
@@ -329,7 +329,7 @@ class Http(World):
 
     def test_handler_error_is_generic(self):
         e = self.edge(EDGE_SECRET="s3")
-        self.mm.fail[r"/preferences/lmost_unfollow$"] = 500
+        self.mm.fail[r"/preferences/aimost_unfollow$"] = 500
         text = self.slash(e, "UA", "", name="unfollow")
         self.assertEqual(text, commands.FAILED)
         self.assertTrue(any("unfollow: command failed: HTTPError" in ln for ln in self.lines))
@@ -346,14 +346,14 @@ class Reload(IsolatedTest):
         import time
         from helpers import SRC
         pkg = self.tmp / "pkg"
-        shutil.copytree(os.path.join(SRC, "lmost"), pkg / "lmost", ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copytree(os.path.join(SRC, "aimost"), pkg / "aimost", ignore=shutil.ignore_patterns("__pycache__"))
         with socket.socket() as so:
             so.bind(("127.0.0.1", 0))
             port = so.getsockname()[1]
         log = open(self.tmp / "edge.log", "w")
         env = dict(os.environ, PYTHONPATH=str(pkg), EDGE_BOT_TOKEN="t", EDGE_SECRET="s", EDGE_LISTEN=f"127.0.0.1:{port}",
                    EDGE_RELOAD_S="0.1", EDGE_UNFOLLOW_EVERY_S="0", PYTHONDONTWRITEBYTECODE="1")
-        p = subprocess.Popen([sys.executable, "-m", "lmost", "edge", "serve"], env=env, stderr=log, cwd=str(self.tmp))
+        p = subprocess.Popen([sys.executable, "-m", "aimost", "edge", "serve"], env=env, stderr=log, cwd=str(self.tmp))
 
         def version(want=None, timeout=10.0):
             end, got = time.time() + timeout, None
@@ -369,7 +369,7 @@ class Reload(IsolatedTest):
             return got
 
         def set_version(v):
-            init = pkg / "lmost" / "__init__.py"
+            init = pkg / "aimost" / "__init__.py"
             init.write_text(init.read_text().split("__version__")[0] + f'__version__ = "{v}"\n')
         try:
             first = version()
@@ -377,7 +377,7 @@ class Reload(IsolatedTest):
             set_version("9.9.9")
             self.assertEqual(version("9.9.9"), "9.9.9")
             self.assertIsNone(p.poll(), "the same process (execv)")
-            ed = pkg / "lmost" / "edge.py"
+            ed = pkg / "aimost" / "edge.py"
             good = ed.read_text()
             ed.write_text(good + "\ndef broken(:\n")
             set_version("9.9.10")

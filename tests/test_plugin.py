@@ -11,18 +11,18 @@ from pathlib import Path
 
 from helpers import IsolatedTest
 
-from lmost import __version__, hooks
+from aimost import __version__, hooks
 
 ROOT = Path(__file__).resolve().parent.parent
-HOOK = ROOT / "bin" / "lmost-hook"
+HOOK = ROOT / "bin" / "aimost-hook"
 
 
 class Manifest(IsolatedTest):
     def test_plugin_and_marketplace(self):
         p = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
-        self.assertEqual((p["name"], p["version"], p["license"]), ("l-most", __version__, "MIT"))
+        self.assertEqual((p["name"], p["version"], p["license"]), ("ai-most", __version__, "MIT"))
         m = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text())
-        self.assertEqual([(x["name"], x["source"]) for x in m["plugins"]], [("l-most", "./")])
+        self.assertEqual([(x["name"], x["source"]) for x in m["plugins"]], [("ai-most", "./")])
 
     def test_hooks_registered_as_the_hook_bodies_expect(self):
         reg = json.loads((ROOT / "hooks" / "hooks.json").read_text())["hooks"]
@@ -30,7 +30,7 @@ class Manifest(IsolatedTest):
         for event, groups in reg.items():
             for g in groups:
                 for h in g["hooks"]:
-                    m = re.fullmatch(r"\$\{CLAUDE_PLUGIN_ROOT\}/bin/lmost-hook ([a-z-]+)", h["command"])
+                    m = re.fullmatch(r"\$\{CLAUDE_PLUGIN_ROOT\}/bin/aimost-hook ([a-z-]+)", h["command"])
                     self.assertTrue(m, h["command"])
                     self.assertIn(m.group(1), set(hooks.HOOKS) | {"gitlab"})
                     got.add((event, g.get("matcher", ""), m.group(1)))
@@ -42,7 +42,7 @@ class Manifest(IsolatedTest):
     def test_setup_command(self):
         text = (ROOT / "commands" / "setup.md").read_text()
         self.assertTrue(text.startswith("---\ndescription: "))
-        self.assertIn("lmost setup $ARGUMENTS", text)
+        self.assertIn("aimost setup $ARGUMENTS", text)
 
 
 class Wrapper(IsolatedTest):
@@ -54,8 +54,8 @@ class Wrapper(IsolatedTest):
         fake = self.tmp / "fakepy"
         fake.write_text(f'#!/bin/sh\necho "$PYTHONPATH|$*" > {self.rec}\n')
         fake.chmod(0o755)
-        self.env = {k: v for k, v in os.environ.items() if not k.startswith(("LMOST_", "XDG_"))}
-        self.env.update(HOME=str(self.tmp / "home"), LMOST_PYTHON=str(fake))
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith(("AIMOST_", "XDG_"))}
+        self.env.update(HOME=str(self.tmp / "home"), AIMOST_PYTHON=str(fake))
 
     def run_hook(self, name, **env):
         return subprocess.run([str(HOOK), name], input="{}", capture_output=True, text=True, env=dict(self.env, **env))
@@ -71,15 +71,15 @@ class Wrapper(IsolatedTest):
         self.assertEqual(self.home_files(), [])
 
     def test_runs_where_the_bridge_is(self):
-        state = self.tmp / "home" / ".local" / "state" / "lmost"
+        state = self.tmp / "home" / ".local" / "state" / "aimost"
         (state / "inbox").mkdir(parents=True)
         self.run_hook("inbox")
         pp, args = self.rec.read_text().strip().split("|")
-        self.assertEqual(args, "-m lmost hook inbox")
+        self.assertEqual(args, "-m aimost hook inbox")
         self.assertEqual(pp.split(":")[0], str(ROOT / "src"))
         self.rec.unlink()
         self.run_hook("gitlab")
-        self.assertEqual(self.rec.read_text().strip().split("|")[1], "-m lmost gitlab hook")
+        self.assertEqual(self.rec.read_text().strip().split("|")[1], "-m aimost gitlab hook")
         self.rec.unlink()
         self.run_hook("confirm-guard")
         self.assertFalse(self.rec.exists(), "guards look at the marks directory")
@@ -89,11 +89,11 @@ class Wrapper(IsolatedTest):
 
     def test_overrides_respected(self):
         (self.tmp / "inb").mkdir()
-        self.run_hook("ask-guard", LMOST_INBOX_DIR=str(self.tmp / "inb"))
+        self.run_hook("ask-guard", AIMOST_INBOX_DIR=str(self.tmp / "inb"))
         self.assertTrue(self.rec.exists())
 
-    def test_lmost_wrapper_runs_the_checkout(self):
+    def test_aimost_wrapper_runs_the_checkout(self):
         env = dict(self.env)
-        env.pop("LMOST_PYTHON")
-        r = subprocess.run([str(ROOT / "bin" / "lmost"), "--version"], capture_output=True, text=True, env=env)
+        env.pop("AIMOST_PYTHON")
+        r = subprocess.run([str(ROOT / "bin" / "aimost"), "--version"], capture_output=True, text=True, env=env)
         self.assertEqual(r.stdout.strip(), __version__)

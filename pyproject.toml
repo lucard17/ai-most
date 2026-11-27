@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "l-most"
+name = "ai-most"
 version = "0.0.1"
 description = "Bridge between Claude Code / Codex agent sessions and a Mattermost server: one bot per role, session inboxes, sender authority, buttons and confirmations."
 readme = "README.md"
@@ -18,10 +18,10 @@ classifiers = [
 ]
 
 [project.scripts]
-lmost = "lmost.cli:main"
+aimost = "aimost.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-lmost = ["data/*/*"]
+aimost = ["data/*/*"]

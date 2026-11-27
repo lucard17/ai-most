@@ -9,7 +9,7 @@ import unittest
 
 from fakes import SessionTest
 
-from lmost import askstore, paths, stale_asks
+from aimost import askstore, paths, stale_asks
 
 
 class Reminder(SessionTest):
@@ -31,7 +31,7 @@ class Reminder(SessionTest):
         self.turn("human", "u1")
         r = stale_asks.reminder("probe", self.tp)
         self.assertIn("- ask-1 · waiting 2 h · «Ship at 14:00?»", r)
-        self.assertIn("lmost post --cancel", r)
+        self.assertIn("aimost post --cancel", r)
         self.assertIsNone(stale_asks.reminder("probe", self.tp), "second Stop of the same turn — silent")
 
     def test_peer_turn_silent_unless_owner_words_mark(self):

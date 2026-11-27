@@ -9,8 +9,8 @@ import urllib.parse
 from fakemm import FakeMM
 from helpers import IsolatedTest
 
-from lmost import commands, edgecmds, heartbeat
-from lmost import edge as edgemod
+from aimost import commands, edgecmds, heartbeat
+from aimost import edge as edgemod
 
 H = 3600
 
@@ -108,7 +108,7 @@ class Authority(Base):
         out = self.run_cmd("agent", "UC", 'ask owner-deployer "deploy now"')
         self.assertEqual(out, "Sent to @owner-deployer.")
         post = self.mm.posts["new1"]
-        cmd = post["props"]["lmost_command"]
+        cmd = post["props"]["aimost_command"]
         self.assertEqual((cmd["sub"], cmd["args"], cmd["caller"]), ("ask", ["owner-deployer", "deploy now"],
                                                                    {"id": "UC", "username": "colleague"}))
         self.assertEqual(post["channel_id"], "dm-BD-UC", "in the caller's DM with the target bot")
@@ -127,7 +127,7 @@ class CommandPosts(Base):
         self.e.keys_file.write_text(json.dumps({"k1": {"owner_id": "UO", "gen": 2}}))
         self.beat("BD", age_s=5)
         self.assertEqual(self.run_cmd("agent", "UO", "mute deployer", root_id="R1"), "Sent to @owner-deployer.")
-        cmd = self.mm.posts["new1"]["props"]["lmost_command"]
+        cmd = self.mm.posts["new1"]["props"]["aimost_command"]
         self.assertEqual((cmd["kid"], cmd["root_id"], cmd["bot"]), ("k1", "R1", "BD"))
         self.assertTrue(commands.verify(cmd, self.e.key_for("k1", 2)))
         self.assertFalse(commands.verify(cmd, "s3"))
@@ -137,7 +137,7 @@ class CommandPosts(Base):
         out = self.run_cmd("agent", "UO", "follow deployer")
         self.assertTrue(out.startswith("Bridge offline since "), out)
         self.assertIn("will deliver to @owner-deployer when it is back", out)
-        self.assertIn("lmost_command", self.mm.posts["new1"]["props"], "the command post stays")
+        self.assertIn("aimost_command", self.mm.posts["new1"]["props"], "the command post stays")
         self.assertIn("never seen", self.run_cmd("agent", "UO", "follow devops"))
 
     def test_waiting_goes_to_the_freshest_bot(self):
@@ -234,8 +234,8 @@ class Unfollow(Base):
         self.assertEqual(self.mm.prefs, {})
         self.assertIn("out of bounds", self.run_cmd("unfollow", "UC", "@owner-deployer 10m"))
         self.assertTrue(self.run_cmd("unfollow", "UC", "@owner-deployer 2h").startswith("On:"))
-        self.assertEqual(json.loads(self.mm.prefs[("UC", "lmost_unfollow")]["BD"]), {"hours": 2.0})
-        self.assertIn("UC", self.mm.prefs[("uEDGE", "lmost_unfollow_users")])
+        self.assertEqual(json.loads(self.mm.prefs[("UC", "aimost_unfollow")]["BD"]), {"hours": 2.0})
+        self.assertIn("UC", self.mm.prefs[("uEDGE", "aimost_unfollow_users")])
         self.assertIn("@owner-deployer — after 2 h of quiet", self.run_cmd("unfollow", "UC", ""))
         self.assertIn("No unfollows", self.run_cmd("unfollow", "UC", "list"))
         edgecmds.unfollow_sweep(self.e)
@@ -243,7 +243,7 @@ class Unfollow(Base):
         self.assertTrue(any("t_broken" in ln for ln in self.lines), "a failing thread is logged, the sweep goes on")
         self.assertIn("@owner-deployer · https://chat.example/team-T/pl/t_old", self.run_cmd("unfollow", "UC", "list"))
         self.assertIn("is off", self.run_cmd("unfollow", "UC", "@owner-deployer off"))
-        self.assertNotIn("UC", self.mm.prefs[("uEDGE", "lmost_unfollow_users")])
+        self.assertNotIn("UC", self.mm.prefs[("uEDGE", "aimost_unfollow_users")])
         self.mm.log.clear()
         edgecmds.unfollow_sweep(self.e)
         self.assertEqual(self.unfollowed(), [])

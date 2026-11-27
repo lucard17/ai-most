@@ -12,9 +12,9 @@ from typing import Optional
 
 from helpers import IsolatedTest
 
-EXTRA_ENV = ("LMOST_CLAUDE_BIN", "LMOST_WAKE_MIN_S", "LMOST_WAKE_VERIFY_S", "LMOST_RESUME_RETRY_S", "LMOST_WAKE_ARGS",
-             "LMOST_WAKE_SETTINGS", "LMOST_WAKE_NO_SCOPE", "LMOST_POST_BIN", "LMOST_BUSY_QUIET_S", "LMOST_ASKS_DIR",
-             "LMOST_PEER_TMP", "LMOST_PEER_WRITABLE", "LMOST_CONFIRM_EVERY_S", "LMOST_WAKE_HINT",
+EXTRA_ENV = ("AIMOST_CLAUDE_BIN", "AIMOST_WAKE_MIN_S", "AIMOST_WAKE_VERIFY_S", "AIMOST_RESUME_RETRY_S", "AIMOST_WAKE_ARGS",
+             "AIMOST_WAKE_SETTINGS", "AIMOST_WAKE_NO_SCOPE", "AIMOST_POST_BIN", "AIMOST_BUSY_QUIET_S", "AIMOST_ASKS_DIR",
+             "AIMOST_PEER_TMP", "AIMOST_PEER_WRITABLE", "AIMOST_CONFIRM_EVERY_S", "AIMOST_WAKE_HINT",
              "CLAUDE_CODE_AGENT", "CLAUDE_CODE_SESSION_ATTENDED")
 
 
@@ -75,7 +75,7 @@ class SessionTest(IsolatedTest):
                        'else echo "$* @$PWD" >> "$d/calls"; fi\n')
         exe.chmod(0o755)
         self.set_agents(list(agents))
-        os.environ["LMOST_CLAUDE_BIN"] = str(exe)
+        os.environ["AIMOST_CLAUDE_BIN"] = str(exe)
         return exe
 
     def set_agents(self, agents: list) -> None:

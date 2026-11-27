@@ -1,4 +1,4 @@
-"""`lmost migrate`: a fake chat-* setup is imported; the source is untouched; l-most reads the result."""
+"""`aimost migrate`: a fake chat-* setup is imported; the source is untouched; ai-most reads the result."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import stat
 
 from helpers import IsolatedTest
 
-from lmost import connections, inbox
+from aimost import connections, inbox
 
 
 class Migrate(IsolatedTest):
@@ -44,17 +44,17 @@ class Migrate(IsolatedTest):
 
     def test_dry_run_changes_nothing(self):
         before = self.snapshot()
-        r = self.lmost("migrate")
+        r = self.aimost("migrate")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("dry run: 11 to copy, 0 kept", r.stdout)
-        self.assertIn("! work: PLAN is not read by l-most", r.stdout)
+        self.assertIn("! work: PLAN is not read by ai-most", r.stdout)
         self.assertIn("chat-mr-watch not imported", r.stdout)
         self.assertEqual(self.snapshot(), before)
         self.assertFalse((self.tmp / "config" / "connections").exists())
 
-    def test_apply_and_lmost_reads_it(self):
+    def test_apply_and_aimost_reads_it(self):
         before = self.snapshot()
-        r = self.lmost("migrate", "--apply")
+        r = self.aimost("migrate", "--apply")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.snapshot(), before, "the source is untouched")
         conn = connections.connections()["work"]
@@ -76,14 +76,14 @@ class Migrate(IsolatedTest):
     def test_existing_files_kept(self):
         (self.tmp / "config").mkdir()
         (self.tmp / "config" / "private-patterns").write_text("mine\n")
-        r = self.lmost("migrate", "--apply")
+        r = self.aimost("migrate", "--apply")
         self.assertIn("= kept", r.stdout)
         self.assertIn("copied 10", r.stdout)
         self.assertEqual((self.tmp / "config" / "private-patterns").read_text(), "mine\n")
-        r = self.lmost("migrate", "--apply")
+        r = self.aimost("migrate", "--apply")
         self.assertIn("copied 0", r.stdout)
 
     def test_nothing_to_import(self):
-        r = self.lmost("migrate", "--from-config", str(self.tmp / "none"), "--from-state", str(self.tmp / "none"))
+        r = self.aimost("migrate", "--from-config", str(self.tmp / "none"), "--from-state", str(self.tmp / "none"))
         self.assertEqual(r.returncode, 1)
-        self.assertEqual(self.lmost("migrate", "--bogus").returncode, 2)
+        self.assertEqual(self.aimost("migrate", "--bogus").returncode, 2)

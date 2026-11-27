@@ -2,7 +2,7 @@
 
 ## Purpose
 What a session writes to people in chat: understandable without the session's context, with mentions that actually
-notify, nothing from the owner's private life in a work chat. Checks run in `lmost post` before sending and form a pipeline
+notify, nothing from the owner's private life in a work chat. Checks run in `aimost post` before sending and form a pipeline
 of text checks (built-in ones below, more from plugins — see extensions); a refusal is an exit code with a hint.
 
 ## Requirements
@@ -26,7 +26,7 @@ Test: `tests/test_post.py` (Basics.test_private_guard — edit, question), `test
 A non-existent `@login` in the text or in `--to` MUST give exit code 6 with similar logins; a mentioned person or addressee
 not in the channel — exit code 7 (`--invite` SHALL add them); the bot itself not in the channel — exit code 8.
 
-Mentions that notify nobody, and buttons for someone who will not see them, MUST NOT be sent; hint — `lmost who`.
+Mentions that notify nobody, and buttons for someone who will not see them, MUST NOT be sent; hint — `aimost who`.
 
 #### Scenario: a login from another system
 - **WHEN** a login that does not exist in chat is mentioned
@@ -50,8 +50,8 @@ Test: `tests/test_post.py` (Files), `tests/test_textcheck.py` (MdChunks)
 `--edit <post_id>` SHALL edit only the role's own post (someone else's — exit code 3) and only its text, with the same
 checks as a new post. `--pin <key>` SHALL keep one pinned post per key and channel and edit it in place.
 
-A channel is laid out as: purpose — one phrase, header — one line with links, rules — a pin by key (`lmost channel`,
-`lmost post --pin`).
+A channel is laid out as: purpose — one phrase, header — one line with links, rules — a pin by key (`aimost channel`,
+`aimost post --pin`).
 
 #### Scenario: channel rules updated
 - **WHEN** a rules pin exists, and the role calls `--pin rules` with new text

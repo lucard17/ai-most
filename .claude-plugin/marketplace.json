@@ -1,9 +1,9 @@
 {
-  "name": "l-most",
+  "name": "ai-most",
   "owner": {"name": "lucard17"},
   "plugins": [
     {
-      "name": "l-most",
+      "name": "ai-most",
       "source": "./",
       "description": "Claude Code ↔ Mattermost bridge: hooks for inbox delivery, chat questions, confirmation and read-only peer turns."
     }

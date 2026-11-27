@@ -8,7 +8,7 @@ import unittest
 
 from fakes import SessionTest
 
-from lmost import turn_origin as to
+from aimost import turn_origin as to
 
 
 class Origin(SessionTest):
@@ -21,7 +21,7 @@ class Origin(SessionTest):
         self.assertEqual(self.kind(self.user("human", "check the tabs")), "human")
 
     def test_pasted_wake_line_is_still_human(self):
-        self.assertEqual(self.kind(self.user("human", "lmost dispatch → s: 1 new in inbox — /inbox")), "human")
+        self.assertEqual(self.kind(self.user("human", "aimost dispatch → s: 1 new in inbox — /inbox")), "human")
 
     def test_inbox_command_is_wake(self):
         self.assertEqual(self.kind(self.user("human", "/inbox")), "wake")
@@ -30,9 +30,9 @@ class Origin(SessionTest):
 
     def test_dispatcher_message_is_wake_only_at_start(self):
         msg = ('Another Claude session sent a message:\n<cross-session-message from="uds:/x.sock" from-name="t">\n'
-               "lmost dispatch → s: 1 new in inbox — /inbox\n</cross-session-message>")
+               "aimost dispatch → s: 1 new in inbox — /inbox\n</cross-session-message>")
         self.assertEqual(self.kind(self.user("peer", msg)), "wake")
-        mid = msg.replace("lmost dispatch → s", "do X; see lmost dispatch → log")
+        mid = msg.replace("aimost dispatch → s", "do X; see aimost dispatch → log")
         self.assertEqual(self.kind(self.user("peer", mid)), "peer")
 
     def test_last_turn_start_wins_tool_results_skipped(self):

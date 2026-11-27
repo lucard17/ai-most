@@ -1,7 +1,7 @@
 # questions Specification
 
 ## Purpose
-Sessions ask people with buttons in chat (`lmost post --ask`), not with text: a question has addressees, the answer comes
+Sessions ask people with buttons in chat (`aimost post --ask`), not with text: a question has addressees, the answer comes
 back as an event into the asking session's inbox, a free-text answer is checked by retelling before acting. Questions of
 answer-sink plugins (see extensions) use the same mechanism, but their answer goes to the sink.
 
@@ -98,7 +98,7 @@ Test: `tests/test_questions.py` (Render.test_partial_and_done); the press itself
 ### Requirement: Reminder to cancel hanging questions
 If during a turn the owner spoke not by a button (terminal, chat message, free-text answer), and the session has open
 questions to the owner, the Stop hook SHALL once per turn block stopping: the list of open questions and the demand to
-cancel each with `lmost post --cancel` or keep it. Without the owner's words or without open questions the hook MUST NOT
+cancel each with `aimost post --cancel` or keep it. Without the owner's words or without open questions the hook MUST NOT
 interfere.
 
 #### Scenario: the owner clarified the task in the terminal
@@ -142,7 +142,7 @@ press by the same person MUST NOT open a second thread.
 Test: `tests/test_waiting.py` (Real.test_discussion_in_a_dm); the hint — the edge
 
 ### Requirement: The outcome of a discussion — one line in the original thread
-A session SHALL send the outcome with `lmost post --conclude <DM thread root> "<outcome>"`: one line "Outcome of the
+A session SHALL send the outcome with `aimost post --conclude <DM thread root> "<outcome>"`: one line "Outcome of the
 discussion with @<person>: <outcome>" in the original thread, a mark in the DM thread. Concluding someone else's discussion
 MUST give exit code 3; text checks SHALL apply as to a normal post.
 
@@ -177,7 +177,7 @@ Test: `tests/test_waiting.py` (Real.test_pin_drop_and_snooze)
 Test: `tests/test_waiting.py` (Real.test_snooze_by_someone_else_and_back)
 
 ### Requirement: Questions asked past the registry get into the registry
-On `serve` start and on `lmost link backfill-asks [--days N]` the bridge SHALL record into the question registry open
+On `serve` start and on `aimost link backfill-asks [--days N]` the bridge SHALL record into the question registry open
 button questions of the connection's bots within the window (14 days by default) that are missing from it. Answered,
 cancelled, deleted questions, posts by non-bots and questions already recorded MUST NOT be recorded again. A question older
 than 7 days (`BACKFILL_SNOOZE_DAYS`) SHALL become "snoozed until I say" right away.

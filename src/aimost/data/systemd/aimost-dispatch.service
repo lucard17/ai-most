@@ -1,0 +1,13 @@
+[Unit]
+Description=aimost dispatch — wakes the addressees of unread inboxes
+
+[Service]
+ExecStart=@PYTHON@ -m aimost dispatch serve
+Environment=PATH=@PATH@
+Environment=PYTHONPATH=@PYTHONPATH@
+Restart=on-failure
+RestartSec=30
+MemoryMax=512M
+
+[Install]
+WantedBy=default.target

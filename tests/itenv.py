@@ -20,5 +20,5 @@ def load() -> dict:
 
 IT = load()
 requires_mattermost = unittest.skipUnless(
-    IT.get("LMOST_IT_URL") and os.environ.get("LMOST_IT", "1") != "0",
+    IT.get("AIMOST_IT_URL") and os.environ.get("AIMOST_IT", "1") != "0",
     "no disposable Mattermost (run tests/integration/up.sh)")

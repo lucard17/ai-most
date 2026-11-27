@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: unit tests (no Mattermost)
-        run: LMOST_IT=0 python -m unittest discover -s tests -t tests -v
+        run: AIMOST_IT=0 python -m unittest discover -s tests -t tests -v
   integration:
     name: integration (disposable Mattermost)
     runs-on: ubuntu-latest

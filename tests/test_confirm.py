@@ -14,7 +14,7 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import confirm, mattermost as mm, paths
+from aimost import confirm, mattermost as mm, paths
 
 
 class Patterns(IsolatedTest):
@@ -80,13 +80,13 @@ class RealServer(IsolatedTest):
 
     @classmethod
     def setUpClass(cls):
-        cls.conn = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
-        cls.owner_tok = IT["LMOST_IT_TOKEN_OWNER"]
-        cls.bot = IT["LMOST_IT_BOT_DEPLOYER"]
+        cls.conn = {"NAME": "it", "URL": IT["AIMOST_IT_URL"]}
+        cls.owner_tok = IT["AIMOST_IT_TOKEN_OWNER"]
+        cls.bot = IT["AIMOST_IT_BOT_DEPLOYER"]
         name = "c-" + uuid.uuid4().hex[:12]
-        cls.channel = mm.api(cls.conn, "POST", "/channels", {"team_id": IT["LMOST_IT_TEAM_ID"], "name": name,
+        cls.channel = mm.api(cls.conn, "POST", "/channels", {"team_id": IT["AIMOST_IT_TEAM_ID"], "name": name,
                                                              "display_name": name, "type": "O"}, token=cls.owner_tok)
-        for uid in (IT["LMOST_IT_BOT_ID_DEPLOYER"], IT["LMOST_IT_BOT_ID_DEVOPS"], IT["LMOST_IT_USER_ID_COLLEAGUE"], IT["LMOST_IT_USER_ID_OUTSIDER"]):
+        for uid in (IT["AIMOST_IT_BOT_ID_DEPLOYER"], IT["AIMOST_IT_BOT_ID_DEVOPS"], IT["AIMOST_IT_USER_ID_COLLEAGUE"], IT["AIMOST_IT_USER_ID_OUTSIDER"]):
             mm.api(cls.conn, "POST", f"/channels/{cls.channel['id']}/members", {"user_id": uid}, token=cls.owner_tok)
 
     def setUp(self):
@@ -94,19 +94,19 @@ class RealServer(IsolatedTest):
         # a thread of its own per test: the bot's root, then the confirmer and an outsider reply
         self.root = mm.api(self.conn, "POST", "/posts", {"channel_id": self.channel["id"], "message": "task"},
                            token=self.bot)
-        for tok in (IT["LMOST_IT_TOKEN_COLLEAGUE"], IT["LMOST_IT_TOKEN_OUTSIDER"]):
+        for tok in (IT["AIMOST_IT_TOKEN_COLLEAGUE"], IT["AIMOST_IT_TOKEN_OUTSIDER"]):
             mm.api(self.conn, "POST", "/posts", {"channel_id": self.channel["id"], "message": "hi",
                                                  "root_id": self.root["id"]}, token=tok)
-        os.environ["LMOST_CONFIRM_EVERY_S"] = "0.2"
-        self.addCleanup(os.environ.pop, "LMOST_CONFIRM_EVERY_S", None)
+        os.environ["AIMOST_CONFIRM_EVERY_S"] = "0.2"
+        self.addCleanup(os.environ.pop, "AIMOST_CONFIRM_EVERY_S", None)
         cfg = paths.config_dir()
         (cfg / "connections").mkdir(parents=True)
         (cfg / "bots" / "it").mkdir(parents=True)
         (cfg / "connections" / "it.env").write_text(
-            f"URL={IT['LMOST_IT_URL']}\nOWNER=owner\nTEAM={IT['LMOST_IT_TEAM']}\nSESSIONS=deployer,devops\n"
+            f"URL={IT['AIMOST_IT_URL']}\nOWNER=owner\nTEAM={IT['AIMOST_IT_TEAM']}\nSESSIONS=deployer,devops\n"
             "EDGE_SECRET=s3\nEDGE_PUBLIC=edge:8767\nCONFIRMERS=deployer:colleague\n")
         (cfg / "bots" / "it" / "deployer").write_text(self.bot)
-        (cfg / "bots" / "it" / "devops").write_text(IT["LMOST_IT_BOT_DEVOPS"])
+        (cfg / "bots" / "it" / "devops").write_text(IT["AIMOST_IT_BOT_DEVOPS"])
 
     def run_request(self, role="deployer", **kw):
         out = {}
@@ -125,7 +125,7 @@ class RealServer(IsolatedTest):
     def wait_post(self):
         for _ in range(100):
             posts = mm.api(self.conn, "GET", f"/posts/{self.root['id']}/thread", token=self.owner_tok)["posts"]
-            hit = [p for p in posts.values() if (p.get("props") or {}).get("lmost_confirm_request")
+            hit = [p for p in posts.values() if (p.get("props") or {}).get("aimost_confirm_request")
 ]
             if hit:
                 return hit[0]
@@ -134,7 +134,7 @@ class RealServer(IsolatedTest):
 
     def press(self, post, user_id, login, answer="yes"):
         """What the edge does on a press: patch the post's props with the choice (props are replaced whole)."""
-        props = dict(post["props"], lmost_confirm={"id": post["props"]["lmost_confirm_request"], "answer": answer,
+        props = dict(post["props"], aimost_confirm={"id": post["props"]["aimost_confirm_request"], "answer": answer,
                                                    "by": login, "user_id": user_id, "at": int(time.time() * 1000)})
         mm.api(self.conn, "PUT", f"/posts/{post['id']}/patch", {"props": props}, token=self.owner_tok)
 
@@ -145,7 +145,7 @@ class RealServer(IsolatedTest):
                          "owner and the confirmer who wrote in the thread; the outsider is not mentioned")
         # The server hides button integrations (url, context) from GET — the context is checked offline (Render).
         self.assertNotIn("integration", post["props"]["attachments"][0]["actions"][0])
-        self.press(post, IT["LMOST_IT_USER_ID_COLLEAGUE"], "colleague")
+        self.press(post, IT["AIMOST_IT_USER_ID_COLLEAGUE"], "colleague")
         t.join(20)
         self.assertIn("id", out, out)
         self.assertIsNone(confirm.spend("deployer", out["id"]), "the record is fresh and unused")
@@ -153,7 +153,7 @@ class RealServer(IsolatedTest):
     def test_outsider_press_does_not_count_and_expires(self):
         t, out = self.run_request(timeout=3)
         post = self.wait_post()
-        self.press(post, IT["LMOST_IT_USER_ID_OUTSIDER"], "outsider")
+        self.press(post, IT["AIMOST_IT_USER_ID_OUTSIDER"], "outsider")
         t.join(20)
         self.assertEqual(out.get("code"), 2)
         msg = mm.api(self.conn, "GET", f"/posts/{post['id']}", token=self.owner_tok)["message"]
@@ -162,7 +162,7 @@ class RealServer(IsolatedTest):
     def test_owner_declines(self):
         t, out = self.run_request(timeout=20)
         post = self.wait_post()
-        self.press(post, IT["LMOST_IT_USER_ID_OWNER"], "owner", answer="no")
+        self.press(post, IT["AIMOST_IT_USER_ID_OWNER"], "owner", answer="no")
         t.join(20)
         self.assertEqual(out.get("code"), 1)
 
@@ -170,7 +170,7 @@ class RealServer(IsolatedTest):
         t, out = self.run_request(role="devops", timeout=2)
         post = self.wait_post()
         self.assertEqual(post["message"].split("\n")[0], "@owner")
-        self.press(post, IT["LMOST_IT_USER_ID_COLLEAGUE"], "colleague")
+        self.press(post, IT["AIMOST_IT_USER_ID_COLLEAGUE"], "colleague")
         t.join(20)
         self.assertEqual(out.get("code"), 2, "a confirmer of another role does not count")
 
@@ -181,7 +181,7 @@ class RealServer(IsolatedTest):
         self.assertIn("outsider", str(e.exception))
 
     def test_not_admitted_or_no_bot_exit_3(self):
-        r = self.lmost("confirm", "deploy", env={"LMOST_ROLE": "stranger"})
+        r = self.aimost("confirm", "deploy", env={"AIMOST_ROLE": "stranger"})
         self.assertEqual(r.returncode, 3, r.stderr)
 
 

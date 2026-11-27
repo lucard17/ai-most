@@ -13,24 +13,24 @@ import unittest
 
 from fakes import SessionTest
 
-from lmost import dispatch, inbox, paths
+from aimost import dispatch, inbox, paths
 
 
 class DispatchTest(SessionTest):
     def setUp(self):
         super().setUp()
         self.fake_claude()
-        os.environ["LMOST_WAKE_MIN_S"] = "0"
-        os.environ["LMOST_WAKE_NO_SCOPE"] = "1"
+        os.environ["AIMOST_WAKE_MIN_S"] = "0"
+        os.environ["AIMOST_WAKE_NO_SCOPE"] = "1"
         paths.config_dir().mkdir(parents=True)
         self.wake_list("steward")
         self.sid = self.session("steward", sid="SID-1")
         self.box = inbox.Inbox("steward")
         self.box.put("one", sender="owner1")
         post = self.tmp / "post"
-        post.write_text(f'#!/bin/sh\necho "$LMOST_ROLE $*" >> {self.tmp}/posted\n')
+        post.write_text(f'#!/bin/sh\necho "$AIMOST_ROLE $*" >> {self.tmp}/posted\n')
         post.chmod(0o755)
-        os.environ["LMOST_POST_BIN"] = str(post)
+        os.environ["AIMOST_POST_BIN"] = str(post)
 
     def wake_list(self, *lines):
         paths.wake_list().write_text("".join(x + "\n" for x in lines))
@@ -60,7 +60,7 @@ class DispatchTest(SessionTest):
 class Wake(DispatchTest):
     def test_activity_gets_the_session_list(self):
         from unittest import mock
-        from lmost import activity
+        from aimost import activity
         agents = [{"name": "steward", "sessionId": "SID-1", "status": "waiting"}]
         self.set_agents(agents)
         with mock.patch.object(activity, "status_sync") as ss, mock.patch.object(activity, "waiting_notify") as wn:
@@ -79,8 +79,8 @@ class Wake(DispatchTest):
         self.once()
         self.assertEqual(self.n("-p --model haiku"), 1)
         self.assertIn("named 'steward'", self.calls())
-        self.assertIn("lmost dispatch → steward: 1 new in inbox — /inbox", self.calls())
-        self.once(LMOST_WAKE_VERIFY_S="0")
+        self.assertIn("aimost dispatch → steward: 1 new in inbox — /inbox", self.calls())
+        self.once(AIMOST_WAKE_VERIFY_S="0")
         self.assertIn("wake steward — NOT read within", self.dlog())
         self.box.put("two")
         self.once()
@@ -95,8 +95,8 @@ class Wake(DispatchTest):
         self.once()
         self.assertEqual(self.calls(), "", "no new lines since the last wake")
         self.box.put("two")
-        self.once(LMOST_WAKE_MIN_S="120")
-        self.assertEqual(self.calls(), "", "not more often than LMOST_WAKE_MIN_S")
+        self.once(AIMOST_WAKE_MIN_S="120")
+        self.assertEqual(self.calls(), "", "not more often than AIMOST_WAKE_MIN_S")
         self.once()
         self.assertEqual(self.n("-p --model"), 1)
 
@@ -110,7 +110,7 @@ class Wake(DispatchTest):
         self.clear_calls()
         self.once()
         self.assertEqual(self.n("--resume"), 0, "a repeated resume — not at once")
-        self.once(LMOST_RESUME_RETRY_S="0")
+        self.once(AIMOST_RESUME_RETRY_S="0")
         self.assertEqual(self.n("--resume"), 1)
 
     def test_resume_same_name_dir_args_model_settings(self):
@@ -122,7 +122,7 @@ class Wake(DispatchTest):
         settings = self.tmp / "settings"
         settings.write_text('#!/bin/sh\n[ "$2" = steward ] && echo \'{"env":{"X":"1"}}\'\nexit 0\n')
         settings.chmod(0o755)
-        self.once(LMOST_WAKE_ARGS="--dangerously-skip-permissions", LMOST_WAKE_SETTINGS=f"{settings} settings")
+        self.once(AIMOST_WAKE_ARGS="--dangerously-skip-permissions", AIMOST_WAKE_SETTINGS=f"{settings} settings")
         c = self.calls()
         self.assertIn('--bg --dangerously-skip-permissions -n steward --settings {"env":{"X":"1"}} --resume SID-1 '
                       "--model sonnet /inbox @", c)
@@ -179,7 +179,7 @@ class Wake(DispatchTest):
         self.once()
         self.assertEqual(self.posted().count("\n"), 1, "the same inbox lines — not repeated")
         inbox.Inbox("ghost").put("hey", via="it")
-        self.once(LMOST_WAKE_HINT="`agent open {role}`")
+        self.once(AIMOST_WAKE_HINT="`agent open {role}`")
         self.assertRegex(self.posted(), r"ghost .*no session with this name exists.*`agent open ghost`")
 
     def test_no_via_no_dm(self):
@@ -193,10 +193,10 @@ class Wake(DispatchTest):
 class OwnCommand(DispatchTest):
     def test_cmd_line_wakes_with_env_even_live(self):
         out = self.tmp / "cmd.out"
-        self.wake_list(f'steward cmd echo "$LMOST_WAKE_ROLE $LMOST_WAKE_COUNT $LMOST_WAKE_PROMPT" > {out}')
+        self.wake_list(f'steward cmd echo "$AIMOST_WAKE_ROLE $AIMOST_WAKE_COUNT $AIMOST_WAKE_PROMPT" > {out}')
         self.set_agents([{"name": "steward", "sessionId": "SID-1", "status": "busy"}])
         self.once()
-        self.assertTrue(out.read_text().startswith("steward 1 lmost dispatch → steward: 1 new in the inbox"))
+        self.assertTrue(out.read_text().startswith("steward 1 aimost dispatch → steward: 1 new in the inbox"))
         self.assertIn("own command", self.dlog())
         self.assertEqual(self.calls(), "")
 
@@ -207,7 +207,7 @@ class OwnCommand(DispatchTest):
         self.assertEqual(self.dlog().count("own command failed (code 3)"), 2)
 
     def test_without_claude_only_cmd(self):
-        os.environ["LMOST_CLAUDE_BIN"] = str(self.tmp / "no-such-claude")
+        os.environ["AIMOST_CLAUDE_BIN"] = str(self.tmp / "no-such-claude")
         out = self.tmp / "cmd.out"
         self.wake_list(f"steward cmd touch {out}")
         self.once()
@@ -253,20 +253,20 @@ class Scope(DispatchTest):
     @unittest.skipUnless(shutil.which("systemd-run") and subprocess.run(
         ["systemctl", "--user", "show-environment"], capture_output=True).returncode == 0, "no user systemd")
     def test_wakes_run_in_their_own_scope(self):
-        os.environ.pop("LMOST_WAKE_NO_SCOPE")
+        os.environ.pop("AIMOST_WAKE_NO_SCOPE")
         dispatch._scope_ok = None
         self.addCleanup(setattr, dispatch, "_scope_ok", None)
         exe = self.tmp / "claude" / "claude"
         exe.write_text('#!/bin/sh\nd=$(dirname "$0")\nif [ "$1" = agents ]; then cat "$d/agents.json"; '
                        'else cat /proc/self/cgroup >> "$d/calls"; fi\n')
         self.once()
-        self.assertIn("lmost-wake-steward-", self.calls())
+        self.assertIn("aimost-wake-steward-", self.calls())
 
 
 class Cli(DispatchTest):
     def test_usage(self):
-        self.assertEqual(self.lmost("dispatch").returncode, 2)
-        self.assertEqual(self.lmost("dispatch", "once").returncode, 0)
+        self.assertEqual(self.aimost("dispatch").returncode, 2)
+        self.assertEqual(self.aimost("dispatch", "once").returncode, 0)
 
 
 if __name__ == "__main__":

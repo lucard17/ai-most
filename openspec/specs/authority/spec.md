@@ -22,14 +22,14 @@ Oracle: `chat-link.test.sh`, `chat-ask-to.test.sh`
 
 ### Requirement: A peer-started turn is read-only
 While the "peer turn" mark is set, the hook SHALL let through in Bash only commands from the read-only list, and file
-writes, Edit and Write only into the scratch directories (`/tmp` or `LMOST_PEER_TMP`, and `PEER_WRITABLE` — `LMOST_PEER_WRITABLE` and
+writes, Edit and Write only into the scratch directories (`/tmp` or `AIMOST_PEER_TMP`, and `PEER_WRITABLE` — `AIMOST_PEER_WRITABLE` and
 `<config>/peer-writable`, relative paths resolved against a
 `cd` in the chain or the session directory). Writing and network commands on a peer's post MUST NOT run without a one-time
-owner confirmation (`LMOST_CONFIRM=<id>`).
+owner confirmation (`AIMOST_CONFIRM=<id>`).
 
 #### Scenario: a peer asks to push
 - **WHEN** the turn was started by a peer's post, and the session calls `git push`
-- **THEN** refused with a hint to `lmost confirm`
+- **THEN** refused with a hint to `aimost confirm`
 Test: `tests/test_hooks.py` (PeerGuard); oracle `chat-peer-guard.test.sh`
 
 ### Requirement: The owner's words in the terminal clear the peer mark
@@ -50,7 +50,7 @@ A dangerous action on chat text alone without a button, and reuse of a confirmat
 refusal is exit code 2.
 
 #### Scenario: a deploy from chat
-- **WHEN** the turn came from chat, and the session calls a deploy without `LMOST_CONFIRM`
+- **WHEN** the turn came from chat, and the session calls a deploy without `AIMOST_CONFIRM`
 - **THEN** refused; with a confirmation — goes through once
 Test: `tests/test_hooks.py` (ConfirmGuard), `tests/test_confirm.py` (Records)
 
@@ -74,7 +74,7 @@ wrote in the thread; `--to` only from the allowed list, otherwise exit code 2 an
 Test: `tests/test_confirm.py` (RealServer)
 
 ### Requirement: A session with a bot asks the owner in chat
-A session that has a bot SHALL ask the owner with buttons in chat (`lmost post --ask`) and MUST NOT ask through a terminal
+A session that has a bot SHALL ask the owner with buttons in chat (`aimost post --ask`) and MUST NOT ask through a terminal
 dialog (AskUserQuestion) the owner may not see. Sessions without a bot and subagents are not affected.
 
 #### Scenario: a question in the terminal

@@ -5,7 +5,7 @@ The bridge delivers posts of people and of other agents from Mattermost into the
 Codex) and wakes a session when it has something to read: a live one by a message, a closed one by resuming the same
 session. The bridge runs on the owner's machine and talks to the chat server over outbound connections only.
 
-Terms: **connection** — one chat server with its config (`~/.config/lmost/connections/<name>.env`); **role** — a named
+Terms: **connection** — one chat server with its config (`~/.config/aimost/connections/<name>.env`); **role** — a named
 agent session (the name set by `/rename`), one bot per role; **owner** — the person the connection belongs to (`OWNER`);
 **inbox** — the per-role event queue; **event** — one inbox line with `kind`, sender, sender role, `via`, channel, thread, post.
 
@@ -34,7 +34,7 @@ Oracle: `chat-link.test.sh`
 ### Requirement: In someone else's thread — only posts that mention the role
 In its own thread and in threads of a channel it owns, a role SHALL get every post; in someone else's thread where the
 role has posted, only posts that mention it (`@role`) — having called the role earlier in that thread is not enough. A role
-MUST NOT get every post of every thread it once posted in. Manual override: `lmost inbox mute|follow <role> <thread>`.
+MUST NOT get every post of every thread it once posted in. Manual override: `aimost inbox mute|follow <role> <thread>`.
 
 #### Scenario: people talk in a foreign thread
 - **WHEN** the role once answered in someone else's thread, and other people keep talking there
@@ -101,20 +101,20 @@ Test: `tests/test_hooks.py` (InboxHook)
 ### Requirement: Session mode — chat or cli
 A session's mode SHALL be `chat` (the inbox wakes it and delivers mid-turn, questions go to chat) or `cli` (cut off from the
 inbox: never woken, events wait for `/inbox` typed by the owner, questions in the terminal). An explicit label
-(`lmost inbox mode <role> chat|cli`) SHALL win; without a label — `chat` if the role is in `WAKE_LIST` or has its own bot,
+(`aimost inbox mode <role> chat|cli`) SHALL win; without a label — `chat` if the role is in `WAKE_LIST` or has its own bot,
 otherwise `cli`. A role, background or Codex session SHALL label itself `chat` on its first event if unlabelled
 (`--if-unset`); a launch MUST NOT override an explicit label. In `cli` mode the dispatcher MUST NOT wake the session, the
 delivery hook MUST NOT deliver on PostToolUse nor block Stop and SHALL show the owner "📬 N new in inbox — /inbox";
-`lmost inbox put` SHALL store the event and tell the sender the session answers on `/inbox`; the bridge SHALL react ⌨️
+`aimost inbox put` SHALL store the event and tell the sender the session answers on `/inbox`; the bridge SHALL react ⌨️
 instead of 📬. The peer guard MUST act in `cli` as in `chat`.
 
 #### Scenario: a session started by hand
 - **WHEN** the owner starts `claude`, names the session `foo`, it has no bot and is not in `WAKE_LIST`
-- **THEN** `lmost inbox mode foo` prints `cli (default)`; no wake-ups
+- **THEN** `aimost inbox mode foo` prints `cli (default)`; no wake-ups
 Test: `tests/test_inbox.py` (SessionMode)
 
 #### Scenario: another session writes to a cli session
-- **WHEN** a session calls `lmost inbox put foo --from hash "…"`, and `foo` is in `cli`
+- **WHEN** a session calls `aimost inbox put foo --from hash "…"`, and `foo` is in `cli`
 - **THEN** the event is stored, the sender sees "foo is in CLI mode — it answers when its owner runs /inbox", exit 0
 Test: `tests/test_inbox.py` (SessionMode)
 
@@ -136,9 +136,9 @@ Test: `tests/test_dispatch.py` (Wake: busy), `tests/test_turn_origin.py` (TurnEn
 
 ### Requirement: A resumed session is the same session, with the owner's permissions
 A resumed session SHALL run in its own directory, under its own name, in the owner's permission mode for sessions
-(`LMOST_WAKE_ARGS`, empty by default). The dispatcher MUST NOT start a second copy of a live session; when there is nothing to
+(`AIMOST_WAKE_ARGS`, empty by default). The dispatcher MUST NOT start a second copy of a live session; when there is nothing to
 resume, it SHALL tell the owner in a direct message "nobody to wake" with the command to start the role
-(`LMOST_WAKE_HINT`, configurable), instead of waking into the void.
+(`AIMOST_WAKE_HINT`, configurable), instead of waking into the void.
 
 #### Scenario: the role is not in the wake list
 - **WHEN** a closed role has unread events, and it is not in `WAKE_LIST`
@@ -173,7 +173,7 @@ or reaction in a relay thread SHALL reach only the session that started the thre
 sender role `owner`; a mention of the relay outside its threads reaches nobody.
 
 #### Scenario: a session without a bot asks the owner
-- **WHEN** session `probe` has no bot and calls `lmost post --ask …`
+- **WHEN** session `probe` has no bot and calls `aimost post --ask …`
 - **THEN** a question with buttons in the owner's DM from the relay, first line "from session probe"; the owner's press
   reaches `probe`'s inbox, not another session's
 Test: `tests/test_post.py` (Relay), `tests/test_connections.py` (Bots); the bridge side (who gets the answer) — Oracle: `chat-relay.test.sh`
@@ -201,7 +201,7 @@ write into the working tree.
 Test: `tests/test_hooks.py` (NoChat), `tests/test_plugin.py` (Wrapper: no Python start without the bridge)
 
 ### Requirement: Codex uses the same inboxes
-For Codex (hook input with `turn_id`) the role name SHALL come from `LMOST_ROLE`, and the inbox SHALL be handed over at
+For Codex (hook input with `turn_id`) the role name SHALL come from `AIMOST_ROLE`, and the inbox SHALL be handed over at
 the start of the turn (UserPromptSubmit) and at its end (Stop).
 
 An agent outside Claude Code SHALL be woken by its own command (`<role> cmd <command>` in `WAKE_LIST`: it gets the role,
