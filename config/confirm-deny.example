@@ -1,0 +1,4 @@
+# lmost confirm guard: in a turn started by the owner's chat message, a command matching one of these lines never
+# runs (not even with a confirmation) — only by the owner's word typed into the session itself.
+# Copy to ~/.config/lmost/confirm-deny and add yours; the built-in defaults below always apply too.
+\b(psql|mysql|mariadb|clickhouse-client|mongosh)\b.*\b(insert|update|delete|alter|drop|truncate|create|grant|revoke)\b
