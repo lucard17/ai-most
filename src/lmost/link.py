@@ -26,16 +26,16 @@ a person" (not in ``LOOP_FREE_CHANNELS``).
 **Receipts** — reactions of the addressee's bot: 📬 in the inbox (⌨️ — the role is in CLI mode), 👀 read (inbox ack),
 ⚠️ an owner's post reached nobody where an agent was expected, or mentions a ``@name`` that does not exist.
 **Owner's reactions** on a role's post → ``reaction`` event (👍 yes · ❌ no · 👀 seen).
-**Answers** — button marks ``lmost_answers`` on own bots' posts (the edge writes them) → ``answer`` event to the asking
-session, or to the answer sink of the question. **Command posts** of the edge (``lmost_command``) → verified with the
+**Question marks** of the edge on own bots' posts (answers, "Waiting for you" presses, discussions) → ``waiting.on_post``;
+deadlines, the pin and reminders — ``waiting.tick`` every pass (in ``TICK_HOOKS``); the registry backfill — once at start. **Command posts** of the edge (``lmost_command``) → verified with the
 owner's key, authority checked, then a bridge handler or a ``command`` event (commands spec).
 **Relay** (``RELAY``) — reads only its DM with the owner; a reply in the thread of a relay post goes to the session that
 started the thread (``props.agent`` of the root), and to nobody else.
 
 Extension points: ``TICK_HOOKS`` (after each pass of a connection), ``POST_HOOKS`` (each own-bot post with trusted props),
-``ANSWER_SINKS``, ``BRIDGE_COMMANDS``.
+``BRIDGE_COMMANDS``; answer sinks — ``waiting.ANSWER_SINKS``.
 
-State — ``<state>/link/``: ``<conn>.<role>.json`` (since, seen, reactions), ``<conn>.answers.json``,
+State — ``<state>/link/``: ``<conn>.<role>.json`` (since, seen, reactions),
 ``<conn>.delivered.json``, ``<conn>.unrouted.json``, ``<conn>.commands.json``, ``<conn>.handles.json``.
 """
 
@@ -52,7 +52,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from . import activity, askstore, commands, connections, heartbeat, inbox, mattermost, paths, questions, ws
+from . import activity, askstore, commands, connections, heartbeat, inbox, linkctx, mattermost, paths, waiting, ws
 
 Connection = connections.Connection
 
@@ -70,22 +70,14 @@ MEANING = {"+1": "yes / agreed", "thumbsup": "yes / agreed", "white_check_mark":
            "thumbsdown": "no", "eyes": "seen"}
 # button marks in post props: the bridge trusts them only on posts of its own bots (the author writes a post's props,
 # and a colleague's bot could put "answered by the owner" there)
-MARK_PROPS = ("lmost_answers", "lmost_waiting_drop", "lmost_waiting_snooze", "lmost_discuss", "lmost_confirm")
-READBACK = ("\n↩️ an answer in words — before acting, retell it in the thread by consequences: what changes, what does "
-            "not, an example; buttons “✅ right” / “✏️ not so” (`lmost post --thread <thread> --to <who answered> --ask …`)")
+MARK_PROPS = waiting.MARK_PROPS + ("lmost_confirm",)
 COMMAND_SINK = "lmost:command"
 
 # ── extension points ───────────────────────────────────────────────────────────────────────────────────────────────────
-TICK_HOOKS: List[Callable[["Link"], None]] = []
+TICK_HOOKS: List[Callable[["Link"], None]] = [lambda x: waiting.tick(x.c)]    # deadlines, the pin, reminders
 POST_HOOKS: List[Callable[["Link", dict, str], None]] = []
 
 
-class SinkRefused(Exception):
-    """An answer sink refused the answer; the message goes into the thread as "⚠️ <sink> refused: …"."""
-
-
-# sink key → fn(link, post, part, answer) -> text of the ``answer`` event for the asking session
-ANSWER_SINKS: Dict[str, Callable[["Link", dict, str, dict], str]] = {}
 # (command, sub) → fn(link, role, payload, caller_role) -> reply text in the command post's thread
 BRIDGE_COMMANDS: Dict[Tuple[str, str], Callable[["Link", str, dict, str], str]] = {}
 
@@ -207,34 +199,25 @@ class Link:
     def __init__(self, c: Connection):
         self.c, self.name = c, c["NAME"]
         self.relay = c.get("RELAY", "").strip()
-        self.bots = {n: t for n, t in connections.bots(c).items() if connections.admitted(c, n) or n == self.relay}
-        self.ids: Dict[str, str] = {}
-        self.handle: Dict[str, str] = {}
-        for n, t in self.bots.items():
-            me = mattermost.api(c, "GET", "/users/me", token=t)
-            self.ids[n], self.handle[n] = me["id"], me.get("username") or n
+        try:
+            self.ctx = linkctx.context(c)          # bots, ids, handles, owner, co-owners — shared with ``waiting``
+        except urllib.error.HTTPError as e:
+            if e.code != 404:
+                raise
+            raise SystemExit(f"lmost link: [{self.name}] OWNER={c.get('OWNER')} is not on the server — renamed? "
+                             f"Fix OWNER in connections/{self.name}.env and restart the bridge")
+        self.bots, self.ids, self.handle = self.ctx.bots, self.ctx.ids, self.ctx.handle
+        self.owner, self.users = self.ctx.owner, self.ctx.users
         try:
             jsave(state_dir() / f"{self.name}.handles.json", self.handle)
         except OSError:
             pass
-        self.owner: Optional[str] = None
-        if self.bots:
-            try:
-                self.owner = self.api("GET", f"/users/username/{c['OWNER']}")["id"]
-            except urllib.error.HTTPError as e:
-                if e.code != 404:
-                    raise
-                raise SystemExit(f"lmost link: [{self.name}] OWNER={c.get('OWNER')} is not on the server — renamed? "
-                                 f"Fix OWNER in connections/{self.name}.env and restart the bridge")
-        self.users: Dict[str, dict] = {}
         self.threads: Dict[str, List[dict]] = {}
         self.paused: Set[str] = set()
         self.loop_free = {x.strip() for x in c.get("LOOP_FREE_CHANNELS", "").split(",") if x.strip()}
         self.routes, self.routes_src = load_routes(c)
         self.check_routes()
         sd = state_dir()
-        self.answers_path = sd / f"{self.name}.answers.json"
-        self.answered = set(jload(self.answers_path, []))
         self.unrouted_path = sd / f"{self.name}.unrouted.json"
         self.unrouted = jload(self.unrouted_path, {})
         self.delivered_path = sd / f"{self.name}.delivered.json"
@@ -259,17 +242,8 @@ class Link:
         inbox.Inbox(to).put(text, via=self.name, **kw)
 
     def owner_ids(self, who: Optional[str]) -> Set[str]:
-        """The owner and the role's co-owners (CO_OWNERS) — chat ids; cached."""
-        cache = self.__dict__.setdefault("co_ids", {})
-        if who not in cache:
-            ids = {self.owner}
-            for login in [x for x in connections.owners(self.c, who or "") if x != self.c.get("OWNER")]:
-                try:
-                    ids.add(self.api("GET", f"/users/username/{login}")["id"])
-                except Exception as e:
-                    log(f"[{self.name}] CO_OWNERS {who}:{login} not found: {e}")
-            cache[who] = ids
-        return cache[who]
+        """The owner and the role's co-owners (CO_OWNERS) — chat ids."""
+        return self.ctx.owner_ids(who) if who else {self.owner}
 
     def role(self, uid: str, who: Optional[str] = None) -> str:
         if uid == self.owner or (who and uid in self.owner_ids(who)):
@@ -461,79 +435,6 @@ class Link:
         if len(st["rx"]) > 500:
             st["rx"] = dict(list(st["rx"].items())[-500:])
 
-    # ── answers ────────────────────────────────────────────────────────────────────────────────────────────────────
-    def _answered(self, key: str) -> None:
-        self.answered.add(key)
-        jsave(self.answers_path, sorted(self.answered)[-5000:])
-
-    def on_answers(self, p: dict, who: str) -> None:
-        """Button answers on a question post → the asking session (or the sink); each mark once per connection."""
-        props = p.get("props") or {}
-        q = str(props.get("lmost_question") or "")
-        spec = props.get("lmost_ask") or {}
-        asker = props.get("agent")
-        if not q.startswith("ask-"):
-            return
-        sink = spec.get("sink") or ""
-        if sink == COMMAND_SINK:
-            return self.on_command_answer(p, who)
-        allowed = {self.owner} if sink else set(self.owner_ids(asker)) if asker else {self.owner}
-        if not sink:
-            for login in spec.get("to") or []:
-                try:
-                    allowed.add(self.api("GET", f"/users/username/{login}", who=who)["id"])
-                except Exception:
-                    pass
-        # a cancelled question does not count: an answer after the cancel goes nowhere. The cancel time — from the post,
-        # or from the asker's registry if an old client's redraw lost it
-        gone = [(props.get("lmost_cancelled") or {}).get("at")]
-        rec = askstore.asks(asker).get(q) if asker else None
-        if rec:
-            gone.append(rec.get("cancelled_at"))
-        gone_at = min([x for x in gone if x], default=None)
-        parts = spec.get("parts") or []
-        for part, a in sorted((props.get("lmost_answers") or {}).items()):
-            key = f"{p['id']}:{part}:{a.get('at')}"
-            if key in self.answered or a.get("user_id") not in allowed:
-                continue
-            self._answered(key)
-            if gone_at and (a.get("at") or 0) >= gone_at:
-                log(f"[{self.name}] {q} item {part}: the question was cancelled — answer not counted")
-                continue
-            n = int(part) if str(part).isdigit() else 0
-            title = parts[n - 1].get("title", "") if 0 < n <= len(parts) else ""
-            if a.get("text"):
-                shown = a["text"]
-            elif 0 < n <= len(parts) and a.get("option"):
-                shown = parts[n - 1]["options"][a["option"] - 1]
-            else:
-                shown = f"option {a.get('option')}"
-            by = self.user(a["user_id"])["username"]
-            thread = p.get("root_id") or p["id"]
-            if sink:
-                fn = ANSWER_SINKS.get(sink)
-                try:
-                    if not fn:
-                        raise SinkRefused("no such answer sink on this machine")
-                    text = fn(self, p, str(part), a)
-                except SinkRefused as e:
-                    self.reply(p, f"⚠️ {sink} refused: {str(e)[:300]}", who)
-                    log(f"[{self.name}] {q} item {part}: sink {sink} refused: {e}")
-                    continue
-                except Exception as e:
-                    self.reply(p, f"⚠️ {sink} refused: {type(e).__name__}", who)
-                    log(f"[{self.name}] {q} item {part}: sink {sink} failed: {e}")
-                    continue
-            else:
-                text = f"answer to {q} item {part} “{title}”: {shown}" + (READBACK if a.get("text") else "")
-            if asker and connections.admitted(self.c, asker):
-                role = "owner" if a["user_id"] in self.owner_ids(asker) else "person"
-                self.put(asker, text, sender=by, kind="answer", role=role, thread=thread)
-            log(f"[{self.name}] {q} item {part} → {asker or '—'}")
-        if asker and rec and rec.get("post") == p["id"] and rec.get("state", "open") == "open" \
-                and askstore.ask_state(p) == "answered" and not gone_at:
-            askstore.ask_record(asker, {"q": q, "state": "answered"})
-
     # ── command posts (commands spec, the bridge side) ─────────────────────────────────────────────────────────────
     def _commands_save(self) -> None:
         self.commands["done"] = self.commands["done"][-1000:]
@@ -630,21 +531,16 @@ class Link:
         cmd_post = self.commands["asked"].get(q)
         if not cmd_post:
             return
-        spec = props.get("lmost_ask") or {}
-        allowed = set()
-        for login in spec.get("to") or []:
-            try:
-                allowed.add(self.api("GET", f"/users/username/{login}", who=who)["id"])
-            except Exception:
-                pass
+        cp = self.api("GET", f"/posts/{cmd_post}", who=who)
+        payload = (cp.get("props") or {}).get("lmost_command") or {}
+        caller = (payload.get("caller") or {}).get("id")
         for part, a in sorted((props.get("lmost_answers") or {}).items()):
-            if a.get("user_id") not in allowed:
+            if not caller or a.get("user_id") != caller:
                 continue                                # only the caller's press counts
             del self.commands["asked"][q]
             askstore.ask_record(who, {"q": q, "state": "answered"})
-            cp = self.api("GET", f"/posts/{cmd_post}", who=who)
             if a.get("option") == 1:
-                self.run_command(cp, who, (cp.get("props") or {}).get("lmost_command") or {})
+                self.run_command(cp, who, payload)
             else:
                 self.commands["done"].append(cmd_post)
                 self._commands_save()
@@ -765,8 +661,10 @@ class Link:
         if not own_bot:
             props = {k: v for k, v in props.items() if k not in MARK_PROPS}
         else:
-            if props.get("lmost_answers"):
-                self.on_answers(p, who)
+            if props.get("lmost_answers") and (props.get("lmost_ask") or {}).get("sink") == COMMAND_SINK:
+                self.on_command_answer(p, who)       # "the command is old — still needed?"
+            else:
+                waiting.on_post(self.c, p, who)      # answers, "not relevant", snoozes, discussions
             for fn in list(POST_HOOKS):
                 try:
                     fn(self, p, who)
@@ -907,11 +805,27 @@ def blind(link: Link) -> bool:
     return not all(getattr(w, "connected", False) for w in link.watchers)
 
 
+def backfill(links: List[Link]) -> None:
+    """Questions asked past the registry — once per connection at start, in a thread: on a busy server the walk over
+    every bot's channels takes minutes, and the bridge must deliver meanwhile. A failure does not stop the bridge."""
+    def run(x: Link) -> None:
+        try:
+            n = waiting.backfill(x.c)
+            if n:
+                log(f"[{x.name}] backfill: {n} question(s) into the registry")
+        except Exception as e:
+            log(f"[{x.name}] backfill failed: {e}")
+    for x in links:
+        threading.Thread(target=run, args=(x,), name=f"backfill-{x.name}", daemon=True).start()
+
+
 def serve(once: bool = False, stop: Optional[threading.Event] = None) -> int:
     pending = dict(connections.connections())
     for c in pending.values():
         load_routes(c)                       # a broken routes file stops the bridge before the first pass
     links = connect(pending)
+    if not once:
+        backfill(links)
     if not links and not pending:
         log(f"no working connection with role bots in {paths.config_dir() / 'connections'}")
         return 1
@@ -928,6 +842,7 @@ def serve(once: bool = False, stop: Optional[threading.Event] = None) -> int:
                 new = connect(pending)
                 links += new
                 retry_at = time.time() + RETRY_S
+                backfill(new)
                 if use_ws:
                     for x in new:
                         watch(x, wake)

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import os
+import types
 import time
 import unittest
 import uuid
@@ -47,7 +47,7 @@ def fake_link(c=None, threads=None, humans=None):
     x.threads = dict(threads or {})
     x.users = {"OWN": {"username": "own"}, "H1": {"username": "h1"}, "H2": {"username": "h2"}, "B9": {"is_bot": True}}
     x.is_human = dict(humans or {})
-    x.co_ids = {}
+    x.ctx = types.SimpleNamespace(owner_ids=lambda role: {"OWN"})
     x.paused, x.loop_free = set(), set()
     x.sent = []
     x.api = lambda method, path, body=None, who=None: x.sent.append((method, path, body)) or {}
@@ -125,6 +125,48 @@ class Rules(IsolatedTest):
         posts[3]["props"] = {"lmost_answers": {"1": {"user_id": "OWN"}}}
         x = fake_link(threads={"R": posts})
         self.assertFalse(x.loop_guard(p, "deployer", self.CH), "the owner's button press is a person taking part")
+
+    def test_unrouted_waits_for_a_full_pass(self):
+        x = fake_link()
+        x.delivered, x.full_end = {}, 0.0
+        x.unrouted_path = self.tmp / "u.json"
+        x.delivered_path = self.tmp / "d.json"
+        x.unrouted = {"P": {"p": {"id": "P", "message": "anyone?", "channel_id": "C"}, "hit": False, "passes": 0,
+                            "who": "deployer", "expect": True, "at": 10.0}}
+        x.warn_unrouted()
+        self.assertEqual(x.sent, [], "no verdict on the pass that saw it")
+        x.warn_unrouted()
+        self.assertEqual(x.sent, [], "no verdict before a full pass that ended later")
+        x.full_end = 20.0
+        x.warn_unrouted()
+        self.assertEqual([s[2]["emoji_name"] for s in x.sent], ["warning"])
+        x.unrouted = {"Q": dict(x.unrouted.get("Q") or {"p": {"id": "Q", "channel_id": "C"}, "hit": False, "passes": 1,
+                                                          "who": "deployer", "expect": True, "at": 10.0})}
+        x.delivered = {"Q": time.time()}
+        x.warn_unrouted()
+        self.assertEqual(len(x.sent), 1, "delivered by another bot — not a miss")
+
+    def test_stale_command_answer(self):
+        x = fake_link()
+        x.commands_path = self.tmp / "c.json"
+        cp = {"id": "CP", "channel_id": "D", "props": {"lmost_command": {"caller": {"id": "H1"}}}}
+        ran = []
+        x.run_command = lambda p, who, payload: ran.append(p["id"])
+        x.api = lambda method, path, body=None, who=None: x.sent.append((method, path, body)) or \
+            (cp if path == "/posts/CP" else {})
+
+        def press(uid, option):
+            x.on_command_answer({"id": "Q", "props": {"lmost_question": "ask-1", "lmost_answers": {
+                "1": {"user_id": uid, "option": option}}}}, "deployer")
+        x.commands = {"done": [], "asked": {"ask-1": "CP"}}
+        press("OWN", 1)
+        self.assertEqual((ran, x.commands["asked"]), ([], {"ask-1": "CP"}), "a non-caller's press does not count")
+        press("H1", 1)
+        self.assertEqual(ran, ["CP"])
+        x.commands = {"done": [], "asked": {"ask-1": "CP"}}
+        press("H1", 2)
+        self.assertEqual((ran, x.commands["done"]), (["CP"], ["CP"]), "no — dropped, not run")
+        self.assertIn("Dropped.", [(b or {}).get("message") for _, _, b in x.sent])
 
     def test_command_key(self):
         x = fake_link({"EDGE_SECRET": "s", "EDGE_KEY_ID": "k1"})
@@ -322,6 +364,11 @@ class Real(IsolatedTest):
                          [("owner", r["id"], root["id"])])
         th = owner_api("GET", f"/posts/{out['id']}/thread")
         self.assertTrue(any("does not know which session" in th["posts"][i]["message"] for i in th["order"]))
+        plain = owner_api("POST", "/posts", {"channel_id": dm, "message": "no relay mark", "props": {"agent": "probe"}},
+                          token=self.tok["rly"])
+        self.post(dm, "reply", root=plain["id"])
+        x.once()
+        self.assertEqual(len(self.events("probe")), 1, "a root without the relay mark is not a session's thread")
 
     def test_heartbeat(self):
         x = self.start()
@@ -357,12 +404,12 @@ class Real(IsolatedTest):
         ev = [e for e in self.events("alpha") if e["kind"] == "answer"]
         self.assertEqual(len(ev), 1, ev)
         self.assertEqual((ev[0]["role"], ev[0]["from"]), ("owner", "owner"))
-        self.assertIn(f"answer to {q['q']} item 1 “deploy now?”: yes", ev[0]["text"])
+        self.assertIn(f"answer to {q['q']} item 1 «deploy now?»: yes", ev[0]["text"])
         self.assertEqual(askstore.asks("alpha")[q["q"]]["state"], "answered")
 
-    def command(self, role, sub, args, at=None, secret=None, root=""):
+    def command(self, role, sub, args, at=None, secret=None, root="", caller=None):
         payload = {"name": "agent", "sub": sub, "args": args,
-                   "caller": {"id": IT["LMOST_IT_USER_ID_OWNER"], "username": "owner"}, "bot": self.uid[role],
+                   "caller": caller or {"id": IT["LMOST_IT_USER_ID_OWNER"], "username": "owner"}, "bot": self.uid[role],
                    "team_id": IT["LMOST_IT_TEAM_ID"], "channel_id": self.ch, "root_id": root,
                    "at": int((at or time.time()) * 1000)}
         payload["sig"] = commands.sign(payload, secret or IT["LMOST_IT_EDGE_SECRET"])
@@ -386,6 +433,22 @@ class Real(IsolatedTest):
         self.assertEqual(self.reactions(bad["id"], "alpha"), [])
         x.once()
         self.assertEqual(len(self.events("alpha")), 1, "once")
+
+    def test_command_closed_to_the_caller(self):
+        self.need_edge()
+        x = self.start()
+        cp = self.command("alpha", "mute", ["alpha"], root="t" * 26,
+                          caller={"id": IT["LMOST_IT_USER_ID_COLLEAGUE"], "username": "colleague"})
+        x.once()
+        self.assertTrue(any("is not open to you" in m for m in self.replies(cp["id"])))
+        self.assertFalse((paths.inbox_dir() / "alpha.mute").exists())
+
+    def test_tick_hooks_keep_the_pin(self):
+        self.write_env("WAITING_POST=alpha\n")
+        x = self.start()
+        pins = owner_api("GET", f"/channels/{self.dm('alpha')}/pinned")
+        self.assertTrue(any((pins["posts"][i].get("props") or {}).get("lmost_waiting") for i in pins["order"]),
+                        "waiting.tick runs after a pass")
 
     def test_mute_command_in_a_thread(self):
         self.need_edge()
