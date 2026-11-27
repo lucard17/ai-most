@@ -10,13 +10,14 @@ session that created it and turns MR activity into events in that session's inbo
 
 ### Requirement: An MR is linked to the session that created it
 After a successful MR-creating command the hook SHALL link the MR to the session (a subagent links it to its parent
-session). MR-creating commands are `glab mr create` plus patterns from `MR_CREATE_PATTERNS`; success is an MR URL in the
+session). MR-creating commands are `glab mr create` plus command words from `MR_CREATE_PATTERNS` (connection key or
+`LMOST_MR_CREATE_PATTERNS`); success is an MR URL in the
 output, not the exit code. Network work runs in the background; the hook prints nothing and never blocks.
 
 #### Scenario: a wrapper script creates the MR
 - **WHEN** `MR_CREATE_PATTERNS` contains `my-mr`, and the session runs `my-mr` which prints an MR URL
 - **THEN** the MR is linked to the session
-Oracle: `chat-mr-watch.test.sh`
+Test: `tests/test_gitlab.py`
 
 ### Requirement: MR activity becomes inbox events
 For a linked MR, approval and its removal, notes by people (not the session's own account), a failed pipeline on HEAD (once
@@ -26,22 +27,24 @@ before linking MUST NOT arrive. Merged or closed SHALL unlink the MR.
 #### Scenario: the MR is merged
 - **WHEN** an MR opened by the session is merged
 - **THEN** the session's inbox gets 🏁, the MR is unlinked
-Oracle: `chat-mr-watch.test.sh`
+Test: `tests/test_gitlab.py`
 
 ### Requirement: MR references become links
-The text check SHALL turn `repo!N` and `repo !N` into a link with the MR title from GitLab (not duplicated if already
+The text check SHALL turn `repo!N` and `repo !N` into a link with the MR title from GitLab (project
+`<GITLAB_GROUP>/repo`) (not duplicated if already
 there), MUST NOT touch code spans, and a bare `!N` MUST give exit code 20 with a hint. GitLab unreachable — the text goes
 as is.
 
 #### Scenario: an MR in a report
 - **WHEN** the post "merged backend!12 to prod"
 - **THEN** the text has a link and the MR title
-Oracle: `chat-post-args.test.sh`
+Test: `tests/test_gitlab.py` (Links)
 
 ### Requirement: Optional
-Without `glab` or with the plugin switched off, the bridge SHALL work as without it: no hook output, no timer errors.
+Without `glab` (or with `glab` never logged in — no user config; `LMOST_GLAB_BIN` set explicitly counts as present) or
+with the plugin switched off, the bridge SHALL work as without it: no hook output, no timer errors, no text check.
 
 #### Scenario: no glab
 - **WHEN** `glab` is not installed
 - **THEN** `lmost setup` does not install the MR timer, hooks stay silent
-NEW
+Test: `tests/test_gitlab.py` (Hook, Available, `once` without glab); the timer part — with `lmost setup`
