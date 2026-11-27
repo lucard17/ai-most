@@ -11,7 +11,8 @@ Environment:
     EDGE_MM_URL          Mattermost as the edge sees it (default ``http://app:8065``)
     EDGE_BOT_TOKEN       token of the edge's bot (system admin: it patches posts of other bots, opens dialogs)
     EDGE_LISTEN          listen address (default ``0.0.0.0:8767``)
-    EDGE_PUBLIC          the edge as Mattermost sees it (default ``edge:8767``) — goes into button and dialog URLs
+    EDGE_PUBLIC          the edge as Mattermost sees it, host:port or URL (default ``lmost-edge:8767``, as on the bridge
+                         side) — goes into button, dialog and slash URLs
     EDGE_MASTER          master key: owner keys are derived, key(kid) = HMAC(EDGE_MASTER, "kid|gen"); none are stored
     EDGE_KEYS_FILE       kid → {owner_id, owner, gen, created, revoked}, no secrets (default ``/edge-data/edge-keys.json``)
     EDGE_SECRET          shared button key (single-owner setups); a button without ``kid`` is checked against it
@@ -38,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import __version__, buttons, commands, mattermost
+from . import __version__, buttons, commands, mattermost, questions
 
 Reply = Tuple[int, dict]
 
@@ -47,7 +48,9 @@ RETRY = "Could not read the question from the chat server — press again in a f
 # notification the server refuses it and the app shows "submission failed". The edge cannot pick the channel for the
 # client — it suggests the way around: an answer in words in the question's thread reaches the session as the owner's.
 MOBILE_HINT = "📱 From a phone the dialog may fail to submit — then answer in words in the question's thread."
-AUTHOR_PROPS = ("agent", "relay")      # who wrote the post: the session and the relay bot it posted through
+# props a redraw keeps (a patch replaces props whole): who wrote the post — the session and the relay bot it posted
+# through; the pin key (``lmost post --pin``); the "discuss in DM" marks
+KEPT_PROPS = ("agent", "relay", "lmost_pin", "lmost_discuss")
 SPECIAL_KINDS = ("confirm", "waiting-drop", "waiting-snooze", "discuss")
 
 
@@ -71,7 +74,10 @@ class Edge:
         self.mm_url = e.get("EDGE_MM_URL", "http://app:8065")
         self.token = e.get("EDGE_BOT_TOKEN", "")
         self.listen = e.get("EDGE_LISTEN", "0.0.0.0:8767")
-        self.public = e.get("EDGE_PUBLIC", "edge:8767")
+        self.public = e.get("EDGE_PUBLIC") or "lmost-edge:8767"
+        # the same URL the bridge side puts into buttons (questions.action_url); the dialog lives next to it
+        self.action_url = questions.action_url({"EDGE_PUBLIC": self.public})
+        self.dialog_url = self.action_url[:-len("/action")] + "/dialog"
         self.master = e.get("EDGE_MASTER", "")
         self.secret = e.get("EDGE_SECRET", "")
         self.slash_secret = e.get("EDGE_SLASH_SECRET") or self.secret
@@ -278,12 +284,10 @@ class Edge:
     def props_for(self, ctx: dict, spec: dict, answers: dict, marks: dict, post_props: dict, auth: Dict[str, str]):
         """Message and props of a question post after a choice. A patch replaces props whole — the spec (read by the bridge
         and the next press) and the author are written again."""
-        msg, atts = buttons.render(ctx["q"], spec, answers, ctx.get("agent"), auth, self.public)
+        msg, atts = questions.render(ctx["q"], spec, answers, ctx.get("agent"), auth, self.action_url)
         props = {"attachments": atts, "lmost_question": ctx["q"], "lmost_answers": marks,
                  ("lmost_ask" if ctx["q"].startswith("ask-") else "lmost_spec"): spec}
-        props.update({k: v for k, v in (post_props or {}).items() if k in AUTHOR_PROPS and v})
-        if post_props.get("lmost_discuss"):
-            props["lmost_discuss"] = post_props["lmost_discuss"]
+        props.update({k: v for k, v in (post_props or {}).items() if k in KEPT_PROPS and v})
         if ctx.get("agent"):
             props["agent"] = ctx["agent"]
         return msg, props
@@ -381,7 +385,7 @@ class Edge:
         if kind == "confirm":
             done = {"answer": ctx["answer"], "by": user, "user_id": uid, "id": ctx["id"], "at": _now_ms()}
             msg, atts = buttons.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"), auth,
-                                               self.public, done=done)
+                                               self.action_url, done=done)
             props = {"attachments": atts, "lmost_confirm": done}
             if ctx.get("agent"):
                 props["agent"] = ctx["agent"]
@@ -398,7 +402,7 @@ class Edge:
                 state.update(spec=spec, answers=answers, marks=marks)
             state["sig"] = self.state_sig(state)
             self.api("POST", "/actions/dialogs/open", {
-                "trigger_id": body.get("trigger_id"), "url": f"http://{self.public}/dialog",
+                "trigger_id": body.get("trigger_id"), "url": self.dialog_url,
                 "dialog": {"callback_id": "custom", "title": f"{q} · {part['title']}"[:24], "submit_label": "Answer",
                            "introduction_text": (part["text"] + "\n\n" if part.get("text") else "") + MOBILE_HINT,
                            "state": json.dumps(state),

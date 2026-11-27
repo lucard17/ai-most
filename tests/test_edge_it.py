@@ -19,7 +19,7 @@ import json
 import helpers  # noqa: F401  (sys.path)
 from itenv import IT, requires_mattermost
 
-from lmost import buttons, commands, heartbeat
+from lmost import commands, heartbeat, questions
 from lmost import mattermost as mm
 
 requires_edge = unittest.skipUnless(IT.get("LMOST_IT_EDGE_URL"), "no edge in the test world (tests/integration/edge-up.sh)")
@@ -48,7 +48,8 @@ class RealEdge(unittest.TestCase):
         return mm.api(self.conn, method, path, body, token=token or self.bot)
 
     def ask(self, spec, auth):
-        msg, atts = buttons.render("ask-" + uuid.uuid4().hex[:8], spec, {}, "deployer", auth, self.public)
+        url = questions.action_url({"EDGE_PUBLIC": self.public})
+        msg, atts = questions.render("ask-" + uuid.uuid4().hex[:8], spec, {}, "deployer", auth, url)
         q = atts[0]["actions"][0]["integration"]["context"]["q"]
         p = self.call("POST", "/posts", {"channel_id": self.channel, "message": msg,
                                          "props": {"attachments": atts, "lmost_question": q, "lmost_ask": spec,

@@ -11,7 +11,7 @@ import urllib.request
 from fakemm import FakeMM
 from helpers import IsolatedTest
 
-from lmost import buttons, commands, edge as edgemod
+from lmost import buttons, commands, questions, edge as edgemod
 
 SPEC2 = {"context": "c", "parts": [{"title": "p1", "text": "", "options": ["yes", "no"]},
                                    {"title": "p2", "text": "", "options": ["yes", "no"]}]}
@@ -87,6 +87,8 @@ class OwnerKeys(World):
         self.assertNotIn('"s3"', json.dumps(r), "no shared key in the redrawn post")
         self.assertEqual(r["update"]["props"]["lmost_answers"]["1"]["option"], 1)
         self.assertEqual(r["update"]["props"]["agent"], "deployer")
+        urls = {a["integration"]["url"] for att in r["update"]["props"]["attachments"] for a in att.get("actions", [])}
+        self.assertEqual(urls, {"http://edge:1/action"}, "the same action URL as the bridge side draws")
 
     def test_shared_key_and_edge_owner(self):
         nk = {"secret": "s3", "q": "ask-1", "part": 1, "option": 1}
@@ -177,11 +179,10 @@ class OwnerKeys(World):
         self.assertIn("EDGE_BOT_TOKEN", self.edge(EDGE_BOT_TOKEN="").check())
 
     def test_bridge_buttons_carry_the_kid(self):
-        auth = buttons.auth_from({"EDGE_SECRET": "kx", "EDGE_KEY_ID": "k123"})
-        _, a = buttons.render("ask-1", {"context": "", "parts": [{"title": "t", "text": "", "options": ["yes"]}]}, {},
-                              "s", auth, "e")
-        self.assertTrue(all(x["integration"]["context"].get("kid") == "k123" for x in a[0]["actions"]))
-        _, a = buttons.render_confirm("c1", "x", "", "s", auth, "e")
+        conn = {"EDGE_SECRET": "kx", "EDGE_KEY_ID": "k123", "EDGE_PUBLIC": "edge:1"}
+        auth = questions.client_auth(conn)
+        _, a = buttons.render_confirm("c1", "x", "", "s", auth, questions.action_url(conn))
+        self.assertTrue(all(x["integration"]["url"] == "http://edge:1/action" for x in a[0]["actions"]))
         self.assertTrue(all(x["integration"]["context"].get("kid") == "k123" for x in a[0]["actions"]))
 
 
@@ -273,6 +274,7 @@ class Marks(World):
     def test_discuss_waiting_drop_and_snooze(self):
         e = self.edge(EDGE_SECRET="s3")
         self.mm.posts["PA"]["props"]["keep"] = "x"
+        self.mm.posts["PA"]["props"]["lmost_pin"] = "rules"
         r = self.press(e, "PA", {"kind": "discuss", "q": "ask-1", "secret": "s3"})[1]
         self.assertIn("opens in your DM", r["ephemeral_text"])
         props = self.mm.posts["PA"]["props"]
@@ -283,6 +285,7 @@ class Marks(World):
         # a later answer keeps the discussion marks
         r = self.press(e, "PA", {"secret": "s3", "q": "ask-1", "part": 1, "option": 1})[1]
         self.assertIn("UA", r["update"]["props"]["lmost_discuss"])
+        self.assertEqual(r["update"]["props"]["lmost_pin"], "rules", "a redraw keeps the pin key")
         self.press(e, "PA", {"kind": "waiting-drop", "q": "ask-9", "asker": "devops", "secret": "s3"})
         self.assertEqual(self.mm.posts["PA"]["props"]["lmost_waiting_drop"]["ask-9"]["asker"], "devops")
         self.assertIn("No period", self.press(e, "PA", {"kind": "waiting-snooze", "secret": "s3"})[1]["ephemeral_text"])

@@ -141,13 +141,15 @@ def verify(payload: dict, key: str) -> bool:
 
 def registration(public: str, slash_secret: str, team_id: str) -> List[dict]:
     """Bodies for ``POST /api/v4/commands``: one per trigger, URL keyed with the slash secret (edge spec)."""
+    from .questions import action_url
+    base = action_url({"EDGE_PUBLIC": public})[:-len("/action")]
     out = []
     for name in names():
         subs = subcommands(name)
         hint = " | ".join(s for s in subs if s) or (next(iter(subs.values())).args if subs else "")
         desc = next(iter(subs.values())).help if len(subs) == 1 else f"l-most: {', '.join(s for s in subs if s)}"
         out.append({"team_id": team_id, "trigger": name, "method": "P", "username": "", "icon_url": "",
-                    "url": f"http://{public}/{name}?k={slash_key(slash_secret, name)}",
+                    "url": f"{base}/{name}?k={slash_key(slash_secret, name)}",
                     "auto_complete": True, "auto_complete_desc": desc[:100], "auto_complete_hint": hint[:100],
                     "display_name": f"/{name}", "description": desc[:128]})
     return out
