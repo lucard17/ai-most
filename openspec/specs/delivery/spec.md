@@ -96,7 +96,7 @@ read-only.
 #### Scenario: an answer arrives while the session works
 - **WHEN** the session is working, and an `answer` arrives in its inbox
 - **THEN** it is in the session's context after the next tool call
-Oracle: `chat-inbox.test.sh`
+Test: `tests/test_hooks.py` (InboxHook)
 
 ### Requirement: Session mode — chat or cli
 A session's mode SHALL be `chat` (the inbox wakes it and delivers mid-turn, questions go to chat) or `cli` (cut off from the
@@ -127,23 +127,23 @@ prompt), and MUST NOT wake one session more often than once in 2 minutes.
 #### Scenario: a session ended with unread events
 - **WHEN** the session has ended, its inbox has unread events, nothing new arrives
 - **THEN** it is resumed with `--resume`; a repeated resume — not more often than every 15 minutes
-Oracle: `chat-dispatch-wake.test.sh`
+Test: `tests/test_dispatch.py` (Wake)
 
 #### Scenario: "busy" after the turn ended
 - **WHEN** `claude agents` shows the session busy, but its transcript has been silent for more than 2 minutes
 - **THEN** the session is woken by a message
-Oracle: `chat-dispatch-turn.test.sh`
+Test: `tests/test_dispatch.py` (Wake: busy), `tests/test_turn_origin.py` (TurnEnded)
 
 ### Requirement: A resumed session is the same session, with the owner's permissions
 A resumed session SHALL run in its own directory, under its own name, in the owner's permission mode for sessions
-(`WAKE_ARGS`, empty by default). The dispatcher MUST NOT start a second copy of a live session; when there is nothing to
+(`LMOST_WAKE_ARGS`, empty by default). The dispatcher MUST NOT start a second copy of a live session; when there is nothing to
 resume, it SHALL tell the owner in a direct message "nobody to wake" with the command to start the role
-(`WAKE_HINT`, configurable), instead of waking into the void.
+(`LMOST_WAKE_HINT`, configurable), instead of waking into the void.
 
 #### Scenario: the role is not in the wake list
 - **WHEN** a closed role has unread events, and it is not in `WAKE_LIST`
 - **THEN** the owner gets "nobody to wake" with the start command in a direct message
-Oracle: `chat-dispatch-wake.test.sh`
+Test: `tests/test_dispatch.py` (Wake)
 
 ### Requirement: The wake log records reading, not launching
 The wake log SHALL record whether the inbox cursor moved ("read / NOT read within N s"). The exit code of a wake MUST NOT
@@ -152,7 +152,7 @@ count as success; the dispatcher MUST NOT retry a failed wake by itself.
 #### Scenario: the wake did not land
 - **WHEN** a session was woken, and its inbox cursor did not move within the check window
 - **THEN** the log says "NOT read within N s", no retry
-Oracle: `chat-dispatch-wake.test.sh`
+Test: `tests/test_dispatch.py` (Wake)
 
 ### Requirement: Shared bots and thread routing
 Roles matching a pattern SHALL be able to post with a shared bot (`BOT_SHARED=<pattern>:<bot>`), and a post in a thread of
@@ -198,7 +198,7 @@ write into the working tree.
 #### Scenario: a colleague without the bridge
 - **WHEN** the bridge is not installed, and any tool is called
 - **THEN** hooks print nothing and create nothing
-Oracle: `chat-hooks-nochat.test.sh`
+Test: `tests/test_hooks.py` (NoChat)
 
 ### Requirement: Codex uses the same inboxes
 For Codex (hook input with `turn_id`) the role name SHALL come from `LMOST_ROLE`, and the inbox SHALL be handed over at
@@ -211,7 +211,7 @@ Codex) events MUST NOT be swallowed silently.
 #### Scenario: a Codex turn starts
 - **WHEN** a role runs on Codex and starts a turn
 - **THEN** unread inbox events are part of the turn's context
-Oracle: `chat-codex.test.sh`
+Test: `tests/test_hooks.py` (InboxHook: codex, ConfirmGuard: codex), `tests/test_dispatch.py` (OwnCommand)
 
 ### Requirement: Outbound connections only
 The bridge SHALL run on the owner's machine and reach the chat server over outbound connections only (websocket and
