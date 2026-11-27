@@ -13,7 +13,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `chat.d/edge.py` | 654 | core ✅ | **ported** → `src/lmost/{edge,edgecmds,commands,heartbeat}.py`, `lmost edge serve`, `lmost commands register`; buttons drawn by `questions.render` / `confirm.render_confirm` (one renderer for both sides); heartbeat in bot preferences (D13) |
 | `chat.d/chatlib.py` | 332 | core, split | connections, admission, bots, relay, thread route **ported** ✅ → `src/lmost/connections.py` (19 tests; exact `cwd` from transcripts instead of decoding the directory name). API/upload/download/describe ported → `src/lmost/mattermost.py` ✅; asks registry, snoozes, discussions → questions. `REVIEW_SESSIONS` → private admission plugin (`ADMISSION`, `BOT_RESOLVERS`); tracker env → private |
 | `chat-activity` | 313 | core ✅ | **ported** → `src/lmost/activity.py`, `lmost activity`; `begin` wired to `inbox.ACK_LISTENERS` |
-| `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional |
+| `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional; `src/lmost_gitlab/watch.py` ✅ (`lmost gitlab add|rm|ls|once`) |
 | `chat-dispatch` | 217 | core ✅ | **ported** → `src/lmost/dispatch.py`, `lmost dispatch once|serve`; launcher hint → `LMOST_WAKE_HINT` |
 | `chat-inbox` | 134 | core ✅ | **ported** → `src/lmost/inbox.py`, `lmost inbox`; 27 tests. Activity on ack wired via `ACK_LISTENERS`; receipts (📬/👀) — with the bridge |
 | `chat.d/chatws.py` | 133 | core ✅ | **ported** → `src/lmost/ws.py` (stoppable watcher); tested on the real server |
@@ -21,7 +21,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `chat-agents` | 100 | core ✅ | **ported** → `src/lmost/agents.py`, `lmost agents` |
 | `chat-confirm` | 96 | core ✅ | **ported** → `src/lmost/confirm.py`, `lmost confirm`; per-MR merge grants → `confirm.GRANTS` plugin |
 | `chat-bot-add` | 93 | core ✅ | **ported** → `src/lmost/botadmin.py`, `lmost bot add` — over REST with an admin token instead of ssh + `mmctl` (D12) |
-| `chat-setup` | 91 | cc-plugin + core | `lmost setup [--check]` ✅ (dirs, connection check); units — with the Claude Code plugin |
+| `chat-setup` | 91 | cc-plugin + core | `lmost setup [--check]` ✅ (dirs, connection check); units — with the Claude Code plugin; units, templates ✅ (`install.py`); plugin — repo root `.claude-plugin/`, `hooks/hooks.json` ✅ |
 | `chat.d/coldread.py` | 63 | private | unexplained-code check tied to a workspace glossary; maybe later as optional text-check plugin |
 | `chat.d/stale_asks.py` | 63 | core ✅ | **ported** → `src/lmost/stale_asks.py` |
 | `chat-channel` | 47 | core ✅ | **ported** → `lmost channel` |
@@ -38,7 +38,7 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | `hooks/chat-confirm-guard.sh` | core ✅ + cc-plugin | dangerous command in a chat-started turn needs confirmation |
 | `hooks/chat-peer-guard.sh` | core ✅ + cc-plugin | peer-started turn is read-only |
 | `hooks/chat-ask-guard.sh` | core ✅ + cc-plugin | blocking questions go to chat when the session has a bot |
-| `hooks/chat-mr-hook.sh` | plugin | links a created MR to the session; MR-create detection made configurable |
+| `hooks/chat-mr-hook.sh` | plugin | links a created MR to the session; MR-create detection made configurable; `src/lmost_gitlab/hook.py` ✅ (`MR_CREATE_PATTERNS`) |
 
 Hook logic is `lmost hook inbox|ask-guard|confirm-guard|peer-guard` (`src/lmost/hooks.py`); the Claude Code plugin only
 registers them.
@@ -47,8 +47,8 @@ registers them.
 
 | Upstream | Target | Notes |
 | --- | --- | --- |
-| `config/*.example` | core | connection, routes, confirm patterns, private patterns |
-| `systemd/*` | core | + launchd examples |
+| `config/*.example` | core | connection, routes, confirm patterns, private patterns; `src/lmost/data/config/` ✅ (routes example — with the bridge) |
+| `systemd/*` | core | + launchd examples; `src/lmost/data/{systemd,launchd}/` ✅ |
 | `test/*.test.sh` (57) | oracle | run against upstream during the port; rewritten as pytest per module |
 | `openspec/specs/chat-authority` (8 req) | core | drop "answer to tracker question" requirement → plugin |
 | `openspec/specs/chat-delivery` (18 req) | core, split | review thread routing → private; GitLab events → plugin spec |

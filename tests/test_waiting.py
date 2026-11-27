@@ -16,7 +16,7 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from lmost import askstore, inbox, waiting
+from lmost import askstore, inbox, plugins, waiting
 from lmost import mattermost as mm
 from lmost import post as postmod
 
@@ -84,7 +84,8 @@ class Real(IsolatedTest):
         os.environ["LMOST_WAITING_EVERY_S"] = "0"
         self.addCleanup(os.environ.pop, "LMOST_WAITING_EVERY_S", None)
         self.addCleanup(waiting._ctx.clear)
-        self.addCleanup(waiting.ANSWER_SINKS.clear)
+        saved = dict(plugins.ANSWER_SINKS)       # tests register under the built-in's name, which is on everywhere
+        self.addCleanup(lambda: (plugins.ANSWER_SINKS.clear(), plugins.ANSWER_SINKS.update(saved)))
         self.conn0 = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
         u = uuid.uuid4().hex[:6]
         self.asker, self.pinner = "wa" + u, "wp" + u
@@ -387,7 +388,8 @@ class Real(IsolatedTest):
 
     # ── answer sinks ──────────────────────────────────────────────────────────────────────────────────────────────
     def test_sink_gets_only_the_owners_answer(self):
-        sink = waiting.ANSWER_SINKS["tracker"] = Sink()
+        sink = Sink()
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
         self.write_env(f"CO_OWNERS={self.asker}:colleague\n")
         q, pid = self.ask("close T-1?", sink="tracker")
         at = int(time.time() * 1000)
@@ -405,7 +407,7 @@ class Real(IsolatedTest):
         self.assertIn(("tracker", "tracker:T-7"), [(r["section"], r["key"]) for r in rows])
 
     def test_sink_refusal_is_posted(self):
-        waiting.ANSWER_SINKS["tracker"] = Sink(refuse=True)
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", Sink(refuse=True))
         q, pid = self.ask("close T-2?", sink="tracker")
         p = self.mark(pid, "lmost_answers", {"1": {"option": 1, "by": "owner", "user_id": IT["LMOST_IT_USER_ID_OWNER"],
                                                    "at": int(time.time() * 1000)}})

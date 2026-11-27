@@ -34,8 +34,14 @@ GROUP = "lmost.plugins"
 BUILTIN = {"lmost_gitlab": "gitlab"}   # module → plugin name
 KINDS = ("transport", "source", "delivery", "command", "answer_sink", "text_check", "admission")
 
-# answer sinks: key → (plugin name, fn(conn, ask record, answer) -> result text; raise to refuse). Read by the bridge.
+# answer sinks: key → (plugin name, sink). A sink is an object with ``answer(conn, q, part, answer, title) -> str`` (the
+# result reported to the asking session; raise ``SinkRefused`` to refuse) and optionally ``rows(conn) -> [row]`` — its
+# own open questions to the owner (row: key, title, at, link, blocking). Read by ``waiting``.
 ANSWER_SINKS: Dict[str, tuple] = {}
+
+
+class SinkRefused(Exception):
+    pass
 
 
 class Plugin:
@@ -151,9 +157,10 @@ class Registrar:
         from . import commands
         self._pending.append(lambda: enabled_anywhere(self.plugin.name) and commands.register(cmd))
 
-    def answer_sink(self, key: str, fn: Callable) -> Callable:
-        self._pending.append(lambda: ANSWER_SINKS.__setitem__(key, (self.plugin.name, fn)))
-        return fn
+    def answer_sink(self, key: str, sink):
+        """``sink.answer(conn, q, part, answer, title)``, optional ``sink.rows(conn)`` — see ANSWER_SINKS."""
+        self._pending.append(lambda: ANSWER_SINKS.__setitem__(key, (self.plugin.name, sink)))
+        return sink
 
     def inbox(self, role: str, conn: Optional[Connection] = None) -> SourceInbox:
         """For a ``source``: the role's inbox with the sender role set by the core."""
@@ -164,10 +171,15 @@ class Registrar:
             f()
 
 
-def sink(conn: Connection, key: str) -> Optional[Callable]:
+def sink(conn: Connection, key: str):
     """The answer sink for a key on this connection, or None (unknown or switched off)."""
     hit = ANSWER_SINKS.get(key)
     return hit[1] if hit and enabled(hit[0], conn) else None
+
+
+def sinks(conn: Connection) -> Dict[str, object]:
+    """The answer sinks on for this connection, by key."""
+    return {k: s for k, (name, s) in ANSWER_SINKS.items() if enabled(name, conn)}
 
 
 # ── discovery ──────────────────────────────────────────────────────────────────────────────────────────────────────────

@@ -137,13 +137,18 @@ class Switching(Fresh):
             KINDS = ("admission", "answer_sink")
             def register(reg):
                 reg.admission(lambda conn, role: True if role.startswith("review-") else None)
-                reg.answer_sink("tracker", lambda conn, rec, answer: "noted")
+                class Sink:
+                    def answer(self, conn, q, part, answer, title):
+                        return "noted"
+                reg.answer_sink("tracker", Sink())
         """)
         plugins.load()
         on, off = self.conn("on", "PLUGINS=door\n"), self.conn("off")
         self.assertTrue(connections.admitted(on, "review-12"))
         self.assertFalse(connections.admitted(off, "review-12"))
-        self.assertEqual(plugins.sink(on, "tracker")(on, {}, "yes"), "noted")
+        self.assertEqual(plugins.sink(on, "tracker").answer(on, "q1", 1, {}, "t"), "noted")
+        self.assertEqual(list(plugins.sinks(on)), ["tracker"])
+        self.assertEqual(plugins.sinks(off), {})
         self.assertIsNone(plugins.sink(off, "tracker"))
         self.assertIsNone(plugins.sink(on, "nope"))
 

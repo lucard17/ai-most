@@ -15,9 +15,8 @@ Connection keys: ``WAITING_POST`` — the bot role that keeps the pin and writes
 ``WAITING_REMIND_AFTER_H`` (1), ``WAITING_REMIND_REPEAT_H`` (2), ``WAITING_DIGEST_AT`` (``10:00,18:00``, local time),
 ``BACKFILL_DAYS`` (14), ``BACKFILL_SNOOZE_DAYS`` (7).
 
-Answer sinks (extensions spec): ``ANSWER_SINKS[key]`` — an object with ``answer(conn, q, part, answer, title) -> str``
-(the result reported to the asking session; raise ``SinkRefused`` to refuse) and optionally ``rows(conn) -> [row]`` —
-the sink's own open questions to the owner (row: key, title, at, link, blocking). Only the owner's press reaches a sink.
+Answer sinks (extensions spec): registered by plugins in ``plugins.ANSWER_SINKS`` (interface there). Only the owner's
+press reaches a sink; a sink switched off for the connection counts as not installed.
 
 State — ``paths.link_state_dir()``: ``<conn>.answered.json``, ``<conn>.waiting.json``, ``<conn>.remind.json``; snoozes and
 discussions — ``askstore``.
@@ -33,7 +32,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import askstore, connections, inbox, mattermost, paths, questions
+from . import askstore, connections, inbox, mattermost, paths, plugins, questions
 
 MARK_PROPS = ("lmost_answers", "lmost_waiting_drop", "lmost_waiting_snooze", "lmost_discuss")
 PIN_PROP = "lmost_waiting"
@@ -44,11 +43,7 @@ READBACK = (f"\n{inbox.FREE_TEXT_MARK} — before acting, retell it in the threa
 SNOOZE_LOCK = threading.Lock()      # <conn>.snooze.json: the main loop and the backfill thread
 
 
-class SinkRefused(Exception):
-    pass
-
-
-ANSWER_SINKS: Dict[str, object] = {}
+SinkRefused = plugins.SinkRefused
 
 
 def log(msg: str) -> None:
@@ -243,7 +238,7 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
 
 def _to_sink(ctx: Ctx, sink: str, q: str, part: int, a: dict, title: str, p: dict, thread: str,
              who: Optional[str]) -> Optional[str]:
-    s = ANSWER_SINKS.get(sink)
+    s = plugins.sink(ctx.c, sink)
     try:
         if s is None:
             raise SinkRefused("not installed")
@@ -416,7 +411,7 @@ def expire_asks(ctx: Ctx, now_ms: Optional[float] = None) -> None:
 # ── what waits for the owner ───────────────────────────────────────────────────────────────────────────────────────────
 def _sink_rows(ctx: Ctx) -> List[dict]:
     rows = []
-    for key, s in sorted(ANSWER_SINKS.items()):
+    for key, s in sorted(plugins.sinks(ctx.c).items()):
         fn: Optional[Callable] = getattr(s, "rows", None)
         if not fn:
             continue
