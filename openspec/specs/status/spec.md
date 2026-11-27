@@ -28,14 +28,17 @@ go to a shared channel.
 Oracle: `chat-activity.test.sh`
 
 ### Requirement: Bridge heartbeat
-The bridge SHALL write a heartbeat at least once a minute into a place the edge can read without the owner's machine (the
-props of each role bot: `lmost_seen` — time, `lmost_state` — running / idle / waiting / not running, unread count, last turn
-time). A missing heartbeat MUST NOT change the bots' visible status by itself; the edge interprets its age.
+The bridge SHALL write a heartbeat at least once a minute into a place the edge can read without the owner's machine: the
+preference `lmost_heartbeat/state` of each role bot, written with that bot's own token (a bot may not patch its own user
+props, but may write its own preferences; the edge's admin bot reads them, other people cannot), a JSON value with `seen`
+— time, `state` — running / idle / waiting / not running, `role`, unread count, last turn time. A missing heartbeat MUST NOT
+change the bots' visible status by itself; the edge interprets its age.
 
 #### Scenario: the machine goes to sleep
 - **WHEN** the bridge stops at 14:00
-- **THEN** `lmost_seen` stays 14:00; the edge reports "bridge offline since 14:00" from 14:03 on
-NEW
+- **THEN** `seen` stays 14:00; the edge reports "bridge offline since 14:00" from 14:03 on
+Test: `test_commands.StatusWho`, `test_commands.Heartbeat`, `test_edge_it.RealEdge.test_slash_commands_through_mattermost`
+(the writer side lands with the bridge)
 
 ### Requirement: Receipts by reactions
 The addressee's bot SHALL put 📬 when the bridge put the post into the inbox, 👀 when the session read it, ⚠️ — not

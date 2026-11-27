@@ -16,7 +16,8 @@ be decided by the owner's bridge.
 #### Scenario: an addressee presses
 - **WHEN** an addressee of a question presses a button
 - **THEN** the post shows the choice, the bridge puts an `answer` into the asking session's inbox
-Oracle: `chat-ask-to.test.sh`, `chat-confirm-confirmers.test.sh`
+Test: `test_edge.Addressees`, `test_edge_it.RealEdge.test_a_person_presses_a_button` (oracle `chat-ask-to.test.sh`,
+`chat-confirm-confirmers.test.sh`)
 
 ### Requirement: Buttons are signed with the bot owner's key
 Every button context SHALL carry the key of the bots' owner (`EDGE_SECRET`, identified by `EDGE_KEY_ID`). Owner keys SHALL
@@ -28,7 +29,8 @@ the `/bot-token key` slash command.
 #### Scenario: a key used on another owner's bot
 - **WHEN** a button on a post of owner B's bot carries owner A's key
 - **THEN** refused, the post is unchanged
-Oracle: `chat-edge-keys.test.sh`
+Test: `test_edge.OwnerKeys`, `test_edge.Dialog`, `test_edge_it.RealEdge.test_owner_key_signs_buttons` (oracle
+`chat-edge-keys.test.sh`, `chat-edge-dialog-state.test.sh`)
 
 ### Requirement: Slash command URLs are keyed
 Each slash command SHALL be registered in Mattermost with the URL `/<command>?k=<hmac(EDGE_SLASH_SECRET, command)>`; the
@@ -37,13 +39,16 @@ edge MUST answer 403 to a call with a wrong key — its port is visible to the c
 #### Scenario: a call without the key
 - **WHEN** a request reaches `/unfollow` without a valid `k`
 - **THEN** 403, nothing changes
-Oracle: `chat-unfollow.test.sh`
+Test: `test_edge.Http`, `test_commands.Registry.test_registration_urls_are_keyed` (oracle `chat-unfollow.test.sh`)
 
 ### Requirement: The bridge notices a stale edge
 The edge SHALL report its version; the bridge SHALL warn the owner once per version when the edge version differs from its
-own. A changed edge MUST NOT be assumed live before the container is restarted.
+own. A changed edge MUST NOT be assumed live before it re-executes: the edge checks its package files between requests
+(`EDGE_RELOAD_S`) and re-executes in place on a change; code that does not compile is not run (one log line, the previous
+code keeps serving).
 
 #### Scenario: the bridge was upgraded, the edge was not
 - **WHEN** the bridge runs version N+1, and the edge reports N
 - **THEN** the owner gets one direct message: the edge is stale, restart it
-NEW (upstream relied on a manual sync procedure).
+Edge side (`GET /version`, re-exec): `test_edge.Http`, `test_edge.Reload` (oracle `chat-edge-reload.test.sh`); the
+bridge warning — NEW, lands with the bridge.
