@@ -15,12 +15,12 @@ patterns (`private-patterns`); a match MUST give exit code 5, a missing patterns
 #### Scenario: a post about a private project
 - **WHEN** the post text matches a private pattern
 - **THEN** exit code 5, nothing is posted
-Oracle: `chat-post.test.sh`
+Test: `tests/test_textcheck.py` (PrivateGuard), `tests/test_post.py` (Basics.test_private_guard)
 
 #### Scenario: private text in an edit or the directory
 - **WHEN** the private text is in a post edit or in the agent directory
 - **THEN** also exit code 5
-Oracle: `chat-post-edit.test.sh`, `chat-agents.test.sh`
+Test: `tests/test_post.py` (Basics.test_private_guard — edit, question), `tests/test_chat_tools.py` (Channel — header); agent directory — Oracle: `chat-agents.test.sh`
 
 ### Requirement: Logins and members are checked against the server
 A non-existent `@login` in the text or in `--to` MUST give exit code 6 with similar logins; a mentioned person or addressee
@@ -31,7 +31,7 @@ Mentions that notify nobody, and buttons for someone who will not see them, MUST
 #### Scenario: a login from another system
 - **WHEN** a login that does not exist in chat is mentioned
 - **THEN** exit code 6 and similar logins
-Oracle: `chat-post-logins.test.sh`, `chat-post-args.test.sh`
+Test: `tests/test_post.py` (Basics.test_unknown_login, Channels.test_members_invite_and_bot_not_in_channel, Asks.test_bot_addressee_and_non_member)
 
 ### Requirement: A document goes as post text
 A `.md` file without post text SHALL be sent as the post text without an attachment (a long one — in parts into the
@@ -44,7 +44,7 @@ the post.
 #### Scenario: a report as a file
 - **WHEN** `--file report.md` without text
 - **THEN** one post with the text, no attachment
-Oracle: `chat-post-md.test.sh` (mermaid images — NEW)
+Test: `tests/test_post.py` (Files), `tests/test_textcheck.py` (MdChunks)
 
 ### Requirement: Editing own posts and pins
 `--edit <post_id>` SHALL edit only the role's own post (someone else's — exit code 3) and only its text, with the same
@@ -56,7 +56,7 @@ A channel is laid out as: purpose — one phrase, header — one line with links
 #### Scenario: channel rules updated
 - **WHEN** a rules pin exists, and the role calls `--pin rules` with new text
 - **THEN** the same post is edited, no new post
-Oracle: `chat-post-edit.test.sh`, `chat-pin-channel.test.sh`
+Test: `tests/test_post.py` (Channels.test_pin_edited_in_place, Channels.test_edit_own_only), `tests/test_chat_tools.py` (Channel)
 
 ### Requirement: Reply into the event's thread and the turn's thread
 A session's reply SHALL go into the event's thread with `--via` from the event; to another role — by mentioning its bot in
@@ -67,4 +67,4 @@ MUST NOT be scattered over new top-level threads.
 #### Scenario: a reply during a turn from a direct message
 - **WHEN** the turn was started by a direct message, and the session posts without `--thread`
 - **THEN** the post goes into that turn's thread
-Oracle: `chat-activity.test.sh`
+Test: `tests/test_post.py` (TurnThread); the turn state itself — Oracle: `chat-activity.test.sh`

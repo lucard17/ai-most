@@ -176,7 +176,7 @@ sender role `owner`; a mention of the relay outside its threads reaches nobody.
 - **WHEN** session `probe` has no bot and calls `lmost post --ask …`
 - **THEN** a question with buttons in the owner's DM from the relay, first line "from session probe"; the owner's press
   reaches `probe`'s inbox, not another session's
-Oracle: `chat-relay.test.sh`; `tests/test_connections.py` (Bots)
+Test: `tests/test_post.py` (Relay), `tests/test_connections.py` (Bots); the bridge side (who gets the answer) — Oracle: `chat-relay.test.sh`
 
 ### Requirement: Own connection and admission
 A session admitted by several connections SHALL post to the default connection when `--via` is not given. A session that
