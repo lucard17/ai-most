@@ -28,7 +28,7 @@ import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
-from . import connections, inbox, mattermost, paths
+from . import connections, inbox, mattermost, paths, questions
 
 TTL_S = 900
 ID_RE = re.compile(r"^[0-9a-f]{8}$")
@@ -124,20 +124,7 @@ def spend(role: str, cid: str, now: Optional[float] = None) -> Optional[str]:
 
 
 # ── the post ───────────────────────────────────────────────────────────────────────────────────────────────────────────
-def auth_of(conn: connections.Connection) -> Dict[str, str]:
-    """How the bridge signs buttons: the connection's key and its id (edge spec: per-owner keys)."""
-    a = {"secret": conn.get("EDGE_SECRET", "")}
-    if conn.get("EDGE_KEY_ID"):
-        a["kid"] = conn["EDGE_KEY_ID"]
-    return a
-
-
-def action_url(edge_public: str) -> str:
-    base = edge_public if "://" in edge_public else f"http://{edge_public}"
-    return base.rstrip("/") + "/action"
-
-
-def render_confirm(cid: str, action: str, details: str, agent: str, edge_public: str, auth: Dict[str, str],
+def render_confirm(cid: str, action: str, details: str, agent: Optional[str], url: str, auth: Dict[str, str],
                    done: Optional[dict] = None, to: Optional[List[str]] = None) -> Tuple[str, list]:
     """Message and attachments of a confirmation post: ✅/❌ buttons, or the outcome once pressed. Shared with the edge,
     which re-renders the post on a press."""
@@ -148,7 +135,6 @@ def render_confirm(cid: str, action: str, details: str, agent: str, edge_public:
     ctx = {"kind": "confirm", "id": cid, "action": action, "details": details, "agent": agent, **auth}
     if to:
         ctx["to"] = list(to)
-    url = action_url(edge_public)
     return head + "\n_One “yes” — one action, 15 minutes._", [{"actions": [
         {"id": "yes", "name": "✅ Confirm", "type": "button", "style": "good",
          "integration": {"url": url, "context": dict(ctx, answer="yes")}},
@@ -194,8 +180,8 @@ def request(role: str, action: str, details: str = "", via: str = "", channel: s
     else:
         channel_id = api("GET", f"/teams/name/{conn['TEAM']}/channels/name/{channel}")["id"]
     cid = secrets.token_hex(4)
-    public = conn.get("EDGE_PUBLIC", "")
-    msg, atts = render_confirm(cid, action, details, role, public, auth_of(conn), to=names)
+    msg, atts = render_confirm(cid, action, details, role, questions.action_url(conn), questions.client_auth(conn),
+                               to=names)
     # Outside a DM the first line mentions who can press: the owner and the allowed people who wrote in the thread
     # (or --to instead) — otherwise nobody sees the confirmation and it expires.
     if (api("GET", f"/channels/{channel_id}") or {}).get("type") != "D":

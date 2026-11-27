@@ -11,7 +11,7 @@ import urllib.request
 from fakemm import FakeMM
 from helpers import IsolatedTest
 
-from lmost import buttons, commands, questions, edge as edgemod
+from lmost import commands, confirm, questions, edge as edgemod
 
 SPEC2 = {"context": "c", "parts": [{"title": "p1", "text": "", "options": ["yes", "no"]},
                                    {"title": "p2", "text": "", "options": ["yes", "no"]}]}
@@ -181,7 +181,7 @@ class OwnerKeys(World):
     def test_bridge_buttons_carry_the_kid(self):
         conn = {"EDGE_SECRET": "kx", "EDGE_KEY_ID": "k123", "EDGE_PUBLIC": "edge:1"}
         auth = questions.client_auth(conn)
-        _, a = buttons.render_confirm("c1", "x", "", "s", auth, questions.action_url(conn))
+        _, a = confirm.render_confirm("c1", "x", "", "s", questions.action_url(conn), auth)
         self.assertTrue(all(x["integration"]["url"] == "http://edge:1/action" for x in a[0]["actions"]))
         self.assertTrue(all(x["integration"]["context"].get("kid") == "k123" for x in a[0]["actions"]))
 

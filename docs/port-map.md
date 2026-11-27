@@ -10,22 +10,22 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 | --- | ---: | --- | --- |
 | `chat-link` | 1093 | core, split | link daemon → modules: routing, authority, questions, waiting list, reactions, loop guard. Answers into the task tracker → private answer-sink plugin |
 | `chat-post` | 704 | core ✅, split | **ported** → `src/lmost/{post,questions,textcheck}.py`, `lmost post`. Tracker question keys, cold reader → private; MR links → GitLab plugin (code 20); answer sinks — `Poster.ask(sink=…)` |
-| `chat.d/edge.py` | 654 | core | buttons, dialogs, per-owner keys; its hard-coded `/unfollow` and `/bot-token` become the first `edge` commands of the registry (D6) |
+| `chat.d/edge.py` | 654 | core ✅ | **ported** → `src/lmost/{edge,edgecmds,commands,heartbeat}.py`, `lmost edge serve`, `lmost commands register`; buttons drawn by `questions.render` / `confirm.render_confirm` (one renderer for both sides); heartbeat in bot preferences (D13) |
 | `chat.d/chatlib.py` | 332 | core, split | connections, admission, bots, relay, thread route **ported** ✅ → `src/lmost/connections.py` (19 tests; exact `cwd` from transcripts instead of decoding the directory name). API/upload/download/describe ported → `src/lmost/mattermost.py` ✅; asks registry, snoozes, discussions → questions. `REVIEW_SESSIONS` → private admission plugin (`ADMISSION`, `BOT_RESOLVERS`); tracker env → private |
 | `chat-activity` | 313 | core ✅ | **ported** → `src/lmost/activity.py`, `lmost activity`; `begin` wired to `inbox.ACK_LISTENERS` |
 | `chat-mr-watch` | 241 | plugin | GitLab MR events → inbox; `glab` dependency stays optional |
-| `chat-dispatch` | 217 | core | wake dispatcher, bash → Python; terminal tab launcher hint → configurable |
+| `chat-dispatch` | 217 | core ✅ | **ported** → `src/lmost/dispatch.py`, `lmost dispatch once|serve`; launcher hint → `LMOST_WAKE_HINT` |
 | `chat-inbox` | 134 | core ✅ | **ported** → `src/lmost/inbox.py`, `lmost inbox`; 27 tests. Activity on ack wired via `ACK_LISTENERS`; receipts (📬/👀) — with the bridge |
 | `chat.d/chatws.py` | 133 | core ✅ | **ported** → `src/lmost/ws.py` (stoppable watcher); tested on the real server |
 | `chat-who` | 125 | core ✅, split | **ported** chat side → `lmost who`; other sources via `WHO_SOURCES` (GitLab → plugin) |
 | `chat-agents` | 100 | core ✅ | **ported** → `src/lmost/agents.py`, `lmost agents` |
-| `chat-confirm` | 96 | core | confirmation post ✅/❌ |
+| `chat-confirm` | 96 | core ✅ | **ported** → `src/lmost/confirm.py`, `lmost confirm`; per-MR merge grants → `confirm.GRANTS` plugin |
 | `chat-bot-add` | 93 | core ✅ | **ported** → `src/lmost/botadmin.py`, `lmost bot add` — over REST with an admin token instead of ssh + `mmctl` (D12) |
 | `chat-setup` | 91 | cc-plugin + core | `lmost setup [--check]` ✅ (dirs, connection check); units — with the Claude Code plugin |
 | `chat.d/coldread.py` | 63 | private | unexplained-code check tied to a workspace glossary; maybe later as optional text-check plugin |
-| `chat.d/stale_asks.py` | 63 | core | Stop reminder to cancel stale questions |
+| `chat.d/stale_asks.py` | 63 | core ✅ | **ported** → `src/lmost/stale_asks.py` |
 | `chat-channel` | 47 | core ✅ | **ported** → `lmost channel` |
-| `chat.d/turn_origin.py` | 47 | core | who started the turn, from the transcript |
+| `chat.d/turn_origin.py` | 47 | core ✅ | **ported** → `src/lmost/turn_origin.py` |
 | `chat-thread` | 35 | core ✅ | **ported** → `lmost thread` |
 | `chat-file` | 27 | core ✅ | **ported** → `lmost file` |
 | `chat-react` | 20 | core ✅ | **ported** → `lmost react` |
@@ -34,11 +34,14 @@ part private. Lines — upstream size at the freeze point `e77dc49` (2026-11-27,
 
 | Upstream | Target | Notes |
 | --- | --- | --- |
-| `hooks/chat-inbox-hook.sh` | cc-plugin | PostToolUse / Stop delivery; Codex variant too |
-| `hooks/chat-confirm-guard.sh` | cc-plugin | dangerous command in a chat-started turn needs confirmation |
-| `hooks/chat-peer-guard.sh` | cc-plugin | peer-started turn is read-only |
-| `hooks/chat-ask-guard.sh` | cc-plugin | blocking questions go to chat when the session has a bot |
+| `hooks/chat-inbox-hook.sh` | core ✅ + cc-plugin | PostToolUse / Stop delivery; Codex variant too |
+| `hooks/chat-confirm-guard.sh` | core ✅ + cc-plugin | dangerous command in a chat-started turn needs confirmation |
+| `hooks/chat-peer-guard.sh` | core ✅ + cc-plugin | peer-started turn is read-only |
+| `hooks/chat-ask-guard.sh` | core ✅ + cc-plugin | blocking questions go to chat when the session has a bot |
 | `hooks/chat-mr-hook.sh` | plugin | links a created MR to the session; MR-create detection made configurable |
+
+Hook logic is `lmost hook inbox|ask-guard|confirm-guard|peer-guard` (`src/lmost/hooks.py`); the Claude Code plugin only
+registers them.
 
 ## Config, units, tests, specs
 

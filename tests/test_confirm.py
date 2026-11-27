@@ -60,7 +60,7 @@ class Records(IsolatedTest):
 
 class Render(unittest.TestCase):
     def test_buttons_and_outcome(self):
-        msg, atts = confirm.render_confirm("c1", "deploy api", "v1.2, host-1", "deployer", "edge:8767",
+        msg, atts = confirm.render_confirm("c1", "deploy api", "v1.2, host-1", "deployer", "http://edge:8767/action",
                                            {"secret": "s", "kid": "k1"}, to=["owner", "bob"])
         self.assertTrue(msg.startswith("🛡 **Confirm?** deploy api\nv1.2, host-1"))
         acts = atts[0]["actions"]
@@ -69,10 +69,9 @@ class Render(unittest.TestCase):
         ctx = acts[0]["integration"]["context"]
         self.assertEqual((ctx["kind"], ctx["id"], ctx["answer"], ctx["secret"], ctx["kid"], ctx["to"]),
                          ("confirm", "c1", "yes", "s", "k1", ["owner", "bob"]))
-        msg, atts = confirm.render_confirm("c1", "deploy api", "", "deployer", "https://edge.example", {},
+        msg, atts = confirm.render_confirm("c1", "deploy api", "", "deployer", "https://edge.example/action", {},
                                            done={"answer": "no", "by": "owner"})
         self.assertEqual((msg, atts), ("🛡 **Confirm?** deploy api\n\n❌ declined — @owner", []))
-        self.assertEqual(confirm.action_url("https://edge.example/"), "https://edge.example/action")
 
 
 @requires_mattermost

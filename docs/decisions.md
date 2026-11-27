@@ -121,6 +121,12 @@ a user allowed to create bots (`LMOST_ADMIN_TOKEN` or `<config>/admin/<connectio
 server, works with any hosting. A bot for another person is assigned to them and no token is issued by the admin — they
 take one with `/bot-token` (commands spec).
 
+## D13. The bridge heartbeat lives in the bot's preferences — 2026-11-27
+
+The status spec first put the heartbeat into bot user props, but a bot may not patch its own user (403 on the real
+server). The bridge writes the bot's own preference `lmost_heartbeat/state` (JSON: seen, role, state, unread, last turn);
+the edge's bot (a system admin) reads it, other users cannot. The edge interprets its age ("bridge offline since …").
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

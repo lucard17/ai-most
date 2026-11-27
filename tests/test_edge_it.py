@@ -147,3 +147,46 @@ class RealEdge(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@requires_mattermost
+@requires_edge
+class ConfirmThroughEdge(helpers.IsolatedTest):
+    """`lmost confirm` posts ✅/❌, the owner presses ✅ in Mattermost, the edge records it, the waiting call returns."""
+
+    def test_owner_confirms(self):
+        import threading
+        from lmost import confirm
+        cfg = self.tmp / "config"
+        (cfg / "connections").mkdir(parents=True)
+        (cfg / "bots" / "it").mkdir(parents=True)
+        (cfg / "connections" / "it.env").write_text(
+            f"URL={IT['LMOST_IT_URL']}\nTEAM={IT['LMOST_IT_TEAM']}\nOWNER=owner\nSESSIONS=deployer\n"
+            f"EDGE_PUBLIC={IT['LMOST_IT_EDGE_PUBLIC']}\nEDGE_SECRET={IT['LMOST_IT_EDGE_SECRET']}\n")
+        (cfg / "bots" / "it" / "deployer").write_text(IT["LMOST_IT_BOT_DEPLOYER"])
+        out = {}
+
+        def run():
+            try:
+                out["id"] = confirm.request("deployer", "restart api " + uuid.uuid4().hex[:6], via="it", timeout=30)
+            except confirm.ConfirmError as e:
+                out["err"] = (e.code, str(e))
+        t = threading.Thread(target=run)
+        t.start()
+        conn = {"NAME": "it", "URL": IT["LMOST_IT_URL"]}
+        dm = mm.api(conn, "POST", "/channels/direct", [IT["LMOST_IT_BOT_ID_DEPLOYER"], IT["LMOST_IT_USER_ID_OWNER"]],
+                    token=IT["LMOST_IT_TOKEN_OWNER"])["id"]
+        post = None
+        for _ in range(100):
+            r = mm.api(conn, "GET", f"/channels/{dm}/posts?per_page=5", token=IT["LMOST_IT_TOKEN_OWNER"])
+            post = next((r["posts"][i] for i in r["order"] if (r["posts"][i].get("props") or {}).get("lmost_confirm_request")
+                         and not r["posts"][i]["props"].get("lmost_confirm")), None)
+            if post:
+                break
+            time.sleep(0.1)
+        self.assertIsNotNone(post, "the confirmation post appeared")
+        mm.api(conn, "POST", f"/posts/{post['id']}/actions/yes", {}, token=IT["LMOST_IT_TOKEN_OWNER"])
+        t.join(40)
+        self.assertEqual(out.get("id"), post["props"]["lmost_confirm_request"], out)
+        done = mm.api(conn, "GET", f"/posts/{post['id']}", token=IT["LMOST_IT_TOKEN_OWNER"])
+        self.assertIn("✅ confirmed — @owner", done["message"])

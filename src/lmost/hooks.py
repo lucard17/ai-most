@@ -18,6 +18,8 @@ import json
 import os
 import re
 import shlex
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
@@ -91,6 +93,15 @@ def _activity(fn: str, role: str, *args) -> None:
     """A step or the end of a chat turn in the activity status — only while a chat turn is open (its file exists):
     a session without a chat turn pays one stat per tool call, nothing more."""
     if not (activity.activity_dir() / f"{role}.json").exists():
+        return
+    if fn == "step" and not os.environ.get("LMOST_ACTIVITY_SYNC"):
+        # every tool call passes here: the progress edit (a network call) goes to a detached process, the tool never waits
+        try:
+            subprocess.Popen([sys.executable, "-m", "lmost", "activity", "step", role, *args], stdin=subprocess.DEVNULL,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True,
+                             env=dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in sys.path if p)))
+        except OSError:
+            pass
         return
     try:
         getattr(activity, fn)(role, *args)

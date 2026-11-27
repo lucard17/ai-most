@@ -322,6 +322,8 @@ class InboxHook(HookTest):
     def test_activity_step_and_end_only_in_an_open_chat_turn(self):
         from unittest import mock
         from lmost import activity
+        os.environ["LMOST_ACTIVITY_SYNC"] = "1"
+        self.addCleanup(os.environ.pop, "LMOST_ACTIVITY_SYNC", None)
         with mock.patch.object(activity, "step") as step, mock.patch.object(activity, "end") as end:
             self.ev("PostToolUse", tool_name="Bash", tool_input={"description": "run tests"})
             self.ev("Stop")
@@ -333,6 +335,21 @@ class InboxHook(HookTest):
             self.ev("Stop")
         self.assertEqual([c.args for c in step.call_args_list], [(self.ROLE, "run tests"), (self.ROLE, "edit a.py")])
         end.assert_called_once_with(self.ROLE)
+
+    def test_activity_step_runs_detached(self):
+        """Without LMOST_ACTIVITY_SYNC the step goes to a separate `lmost activity step` process."""
+        from lmost import activity
+        os.environ.pop("LMOST_ACTIVITY_SYNC", None)
+        paths.private_dir(activity.activity_dir())
+        f = activity.activity_dir() / f"{self.ROLE}.json"
+        f.write_text(json.dumps({"name": self.ROLE, "via": "none", "root": "r", "since": time.time(),
+                                 "last": 0, "n": 0, "steps": []}))
+        self.ev("PostToolUse", tool_name="Bash", tool_input={"description": "run tests"})
+        for _ in range(50):
+            if json.loads(f.read_text()).get("n") == 1:
+                break
+            time.sleep(0.1)
+        self.assertEqual(json.loads(f.read_text())["steps"], ["run tests"])
 
     def test_subagent_does_not_read(self):
         self.box.put("yes", kind="answer")

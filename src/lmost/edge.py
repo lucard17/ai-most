@@ -39,7 +39,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 
-from . import __version__, buttons, commands, mattermost, questions
+from . import __version__, commands, confirm, mattermost, questions
 
 Reply = Tuple[int, dict]
 
@@ -384,9 +384,9 @@ class Edge:
             return 200, {"ephemeral_text": "💬 The discussion opens in your DM with the session's bot in a few seconds."}
         if kind == "confirm":
             done = {"answer": ctx["answer"], "by": user, "user_id": uid, "id": ctx["id"], "at": _now_ms()}
-            msg, atts = buttons.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"), auth,
-                                               self.action_url, done=done)
-            props = {"attachments": atts, "lmost_confirm": done}
+            msg, atts = confirm.render_confirm(ctx["id"], ctx["action"], ctx.get("details") or "", ctx.get("agent"),
+                                               self.action_url, auth, done=done)
+            props = {"attachments": atts, "lmost_confirm": done, "lmost_confirm_request": ctx["id"]}
             if ctx.get("agent"):
                 props["agent"] = ctx["agent"]
             return 200, {"update": {"message": msg, "props": props}}
@@ -509,6 +509,7 @@ def make_server(edge: Edge, reload_s: Optional[float] = None, argv: Optional[Lis
         started = _code_stamp()
         checked = 0.0
         bad: Optional[Tuple] = None
+        bad_err: Optional[str] = None
 
         def service_actions(self):
             if reload_s <= 0:
@@ -523,6 +524,9 @@ def make_server(edge: Edge, reload_s: Optional[float] = None, argv: Optional[Lis
             err = _compiles()
             if err:
                 self.bad = cur
+                if err == self.bad_err:          # the same breakage, written in several steps — said once
+                    return
+                self.bad_err = err
                 edge.log(f"code changed but does not compile ({err}) — serving the previous code")
                 return
             edge.log("code changed — re-executing")
