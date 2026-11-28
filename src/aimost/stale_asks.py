@@ -35,9 +35,8 @@ def reminder(role: str, transcript: str, now: Optional[float] = None) -> Optiona
         return None
     first = recs[start]
     turn = str(first.get("uuid") or turn_origin.ts(first))
-    words = (first.get("origin") or {}).get("kind") == "human" or any(
-        r.get("type") == "attachment" and (r.get("attachment") or {}).get("type") == "queued_command"
-        and ((r.get("attachment") or {}).get("origin") or {}).get("kind") == "human" for r in recs[start:])
+    # typed into this turn by the owner — not an /inbox wake-up, not a lifecycle command a tool printed (/wake-up, /compact)
+    words = turn_origin.typed_in_turn(transcript) > 0
     marks = paths.marks_dir()
     if not words:
         try:

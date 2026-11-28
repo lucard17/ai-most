@@ -17,5 +17,5 @@ Check: `python3 -m unittest tests.test_hooks tests.test_inbox`; full suite green
 Check: `python3 -m unittest tests.test_commands` (Mode)
 
 ## 4. Live check
-- [ ] l17's machine: an unlabelled role with a bot — type in its terminal, it asks → terminal dialog; answer a button in its thread, it asks → chat in that thread
+- [x] l17's machine: an unlabelled role with a bot — type in its terminal, it asks → terminal dialog; answer a button in its thread, it asks → chat in that thread
 Check: two transcripts / posts named in the PR
