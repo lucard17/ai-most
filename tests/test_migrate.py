@@ -71,8 +71,8 @@ class Migrate(IsolatedTest):
         self.assertEqual((self.tmp / "config" / "wake.list").read_text(), "deployer\n")
         self.assertFalse((self.tmp / "state" / "gitlab" / "watch.json.lock").exists(), "locks are not copied")
         from aimost_gitlab import watch
-        with watch.State() as st:
-            self.assertEqual(st.d["mrs"]["api!7"]["session"], "deployer", "linked MRs keep being watched")
+        with watch.State() as ws:
+            self.assertEqual(ws.d["mrs"]["api!7"]["session"], "deployer", "linked MRs keep being watched")
         for rel in ("marks/deployer.chat", "link/work.snooze.json", "asks/deployer.jsonl"):
             self.assertTrue((st / rel).is_file(), rel)
         tok = self.tmp / "config" / "bots" / "work" / "deployer"
