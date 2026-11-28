@@ -180,3 +180,55 @@ class Services(SetupTest):
         self.assertIn("no services installed", r.stdout)
         self.assertFalse((self.tmp / "units").exists())
         self.assertEqual(self.calls(), [])
+
+
+class FollowsPluginUpdate(Services):
+    """After a plugin update the services move to the new version on the next SessionStart (hook `units`)."""
+
+    def pin_units(self, version):
+        """Point the core units at a fake older package of `version` ("" — a removed directory)."""
+        pkg = self.tmp / f"old-{version or 'gone'}"
+        if version:
+            (pkg / "aimost").mkdir(parents=True)
+            (pkg / "aimost" / "__init__.py").write_text(f'__version__ = "{version}"\n')
+        for u in install.CORE_UNITS:
+            p = self.tmp / "units" / u
+            p.write_text(p.read_text().replace(p.read_text().split("PYTHONPATH=", 1)[1].splitlines()[0], str(pkg)))
+        (self.bin / "active").write_text("aimost-link.service\naimost-dispatch.service\n")
+        self.calls()
+
+    def restarts(self):
+        return sorted(x for x in self.calls() if "restart" in x)
+
+    def test_older_or_removed_version_moves_to_this_one(self):
+        from aimost import hooks
+        self.add_bot()
+        self.aimost("setup")
+        for old in ("0.0.1", ""):
+            self.pin_units(old)
+            r = hooks.run("units", "{}")
+            self.assertIn("background services moved to", r.stdout)
+            self.assertEqual(install.unit_version(self.tmp / "units" / "aimost-link.service"), aimost_version())
+            self.assertEqual(self.restarts(), ["--user restart aimost-dispatch.service", "--user restart aimost-link.service"])
+
+    def test_same_or_newer_untouched(self):
+        from aimost import hooks
+        self.add_bot()
+        self.aimost("setup")
+        (self.bin / "active").write_text("aimost-link.service\naimost-dispatch.service\n")
+        self.calls()
+        self.assertEqual(hooks.run("units", "{}").stdout, "")
+        self.pin_units("99.0.0")   # a session still on the old plugin never downgrades the services
+        self.assertEqual(hooks.run("units", "{}").stdout, "")
+        self.assertEqual(self.restarts(), [])
+        self.assertEqual(install.unit_version(self.tmp / "units" / "aimost-link.service"), "99.0.0")
+
+    def test_nothing_without_installed_units(self):
+        from aimost import hooks
+        self.assertEqual(hooks.run("units", "{}").stdout, "")
+        self.assertFalse((self.tmp / "units").exists())
+
+
+def aimost_version():
+    from aimost import __version__
+    return __version__
