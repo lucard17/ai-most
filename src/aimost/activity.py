@@ -353,7 +353,7 @@ def last_action(session_id: str) -> str:
     """What the session wants to do: the description (or start of the command) of the last tool call in its transcript."""
     for f in connections._claude_root().glob(f"projects/*/{session_id}.jsonl"):
         try:
-            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()[-200:]
+            lines = connections.tail_lines(f)[-200:]    # the tail only: transcripts grow to hundreds of MB
         except OSError:
             continue
         for ln in reversed(lines):

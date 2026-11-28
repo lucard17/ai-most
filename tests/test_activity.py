@@ -6,11 +6,13 @@ import json
 import os
 import time
 import uuid
+from pathlib import Path
+from unittest import mock
 
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from aimost import activity
+from aimost import activity, connections
 from aimost import mattermost as mm
 
 ENV = ("AIMOST_ACTIVITY_SYNC", "AIMOST_PROGRESS_AFTER_S", "AIMOST_PROGRESS_EVERY_S", "AIMOST_ACTIVITY_DIR")
@@ -62,6 +64,27 @@ class Offline(IsolatedTest):
             {"type": "tool_use", "name": "Bash", "input": {"command": "rm -rf  build", "description": ""}}]}}) + "\n{bad\n")
         self.assertEqual(activity.last_action("s1"), "Bash: rm -rf build")
         self.assertEqual(activity.last_action("nope"), "")
+
+    def test_last_action_reads_only_the_tail_of_a_big_transcript(self):
+        d = self.tmp / "claude" / "projects" / "x"
+        d.mkdir(parents=True)
+        os.environ["CLAUDE_CONFIG_DIR"] = str(self.tmp / "claude")
+        filler = json.dumps({"type": "user", "message": {"content": "я" * 2000}}) + "\n"
+        old = json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Old", "input": {}}]}})
+        new = json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "name": "Edit", "input": {"file_path": "/x.py"}}]}})
+        with open(d / "s2.jsonl", "w", encoding="utf-8") as f:
+            f.write(old + "\n" + filler * 1500 + new + "\n")       # ≈6 MB: more than the tail read
+        real = Path.read_text
+        def guard(path, *a, **kw):
+            if str(path).endswith(".jsonl"):
+                raise AssertionError("a transcript read whole")
+            return real(path, *a, **kw)
+        with mock.patch.object(Path, "read_text", guard):
+            self.assertEqual(activity.last_action("s2"), "Edit: /x.py")
+        self.assertEqual(connections.tail_lines(d / "s2.jsonl", 4096)[-1], new, "the cut first line is dropped")
+        self.assertTrue(connections.file_has(d / "s2.jsonl", '"name": "Old"'))
+        self.assertFalse(connections.file_has(d / "s2.jsonl", "agentSetting"))
 
 
 @requires_mattermost

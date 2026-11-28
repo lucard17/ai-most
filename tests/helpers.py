@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import os as _os
+
+# the props prefix is read once, at import: the machine's own (~/.config/aimost/props-prefix, e.g. `chat` after a team
+# switch) must not leak into the tests — they run with the default unless the run sets AIMOST_PROPS_PREFIX itself
+_os.environ.setdefault("AIMOST_PROPS_PREFIX", "aimost")
+
 import os
 import subprocess
 import sys
