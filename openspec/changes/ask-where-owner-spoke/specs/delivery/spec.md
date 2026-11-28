@@ -13,12 +13,13 @@ of 📬. The peer guard MUST act in `cli` as in `chat`.
 
 #### Scenario: a session started by hand
 - **WHEN** the owner starts `claude`, names the session `foo`, it has no bot and is not in `WAKE_LIST`
-- **THEN** `aimost inbox mode foo` prints `auto: default — cli`; no wake-ups
+- **THEN** `aimost inbox mode foo` prints `cli (auto: default)`; no wake-ups
 Test: `tests/test_inbox.py` (SessionMode)
 
 #### Scenario: an unlabelled role with a bot
 - **WHEN** `foo` has its own bot and no label
-- **THEN** `aimost inbox mode foo` prints `auto: own bot — chat`, and where a question goes now (`terminal` or `chat <thread>`)
+- **THEN** `aimost inbox mode foo` prints `chat (auto: own bot; questions where the owner spoke last …)` — the first word stays
+  the delivery mode, callers read it
 NEW. Test: `tests/test_inbox.py` (SessionMode)
 
 #### Scenario: another session writes to a cli session

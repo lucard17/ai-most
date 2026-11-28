@@ -15,8 +15,9 @@ behaves like an explicit one.
 - "Spoke" = the owner's input typed into the session (a turn start or a mid-turn queued input, not an inbox wake-up), or an owner's
   chat event handed to the session (a message, an answer by button, a reaction). The latest of the two wins.
 - Explicit labels keep their meaning: `chat` — questions always in chat; `cli` — always in the terminal, no waking.
-- `aimost inbox mode <role>` prints `auto (…)` with the derived delivery and where a question would go now.
-- New chat command `/agent mode <role> [cli|chat|auto]` (owner only, ephemeral answer) — the same setting from Mattermost
+- `aimost inbox mode <role>` says `auto` in the brackets (`chat (auto: own bot; questions where the owner spoke last …)`);
+  the first word stays the delivery mode.
+- New chat command `/agent mode <role> [cli|chat|auto]` (owner only, the answer in the command post's thread) — the same setting from Mattermost
   (l17 28.11).
 - Unchanged: an unlabelled session without a bot and not in `WAKE_LIST` stays `cli` (not woken, questions in the terminal).
 

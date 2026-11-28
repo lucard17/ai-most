@@ -200,6 +200,13 @@ class SessionMode(IsolatedTest):
         inbox.set_mode("r", "auto")
         self.assertEqual(inbox.mode_of("r", has_bot=lambda r: False), ("cli", "default"))
 
+    def test_mode_report_auto(self):
+        """The first word stays the delivery mode (callers read it); auto is said in the brackets."""
+        r = self.aimost("inbox", "mode", "foo")
+        self.assertTrue(r.stdout.startswith("cli (auto: default)"), r.stdout)
+        inbox.set_mode("foo", "chat")
+        self.assertTrue(self.aimost("inbox", "mode", "foo").stdout.startswith("chat (label"))
+
     def test_put_into_cli_session_tells_sender(self):
         r = self.aimost("inbox", "put", "mp-harness", "--from", "hash", "hi")
         self.assertEqual(r.returncode, 0)

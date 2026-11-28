@@ -116,6 +116,23 @@ def owner_typed_since(path: str, since: float) -> bool:
     return False
 
 
+def typed_in_turn(path: str) -> int:
+    """When the owner last typed into the session in the current turn (epoch; 0 — not in this turn): the turn start when it
+    is ``human``, else the newest mid-turn ``queued_command`` of ``origin.kind=human`` after it. A wake-up or a session's
+    message starting the turn, and typing in an earlier turn, do not count."""
+    recs = tail(path)
+    i = turn_start(recs)
+    if i is None:
+        return 0
+    at = ts(recs[i]) if classify(recs[i]) == "human" else 0
+    for r in recs[i + 1:]:
+        a = r.get("attachment") or {}
+        if r.get("type") == "attachment" and a.get("type") == "queued_command" \
+                and (a.get("origin") or {}).get("kind") == "human":
+            at = max(at, ts(r))
+    return at
+
+
 def turn_ended(path: str) -> bool:
     """The session's turn is over: the last meaningful record is the end-of-turn system record. ``claude agents`` keeps
     a session "busy" while background work runs after the turn, and that work's queue records keep the transcript
