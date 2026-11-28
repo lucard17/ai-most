@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import time
 import unittest
+from pathlib import Path
+from unittest import mock
 
 from fakes import SessionTest
 
@@ -244,7 +246,14 @@ class CliMode(DispatchTest):
         self.append(r, {"type": "agent-setting", "agentSetting": "devops", "sessionId": r})
         inbox.Inbox("idler").put("job")
         self.set_agents([{"name": "idler", "sessionId": r, "status": "idle", "kind": "interactive"}])
-        self.once()
+        # a transcript is never read whole: they grow to hundreds of MB, the service has a memory cap
+        real = Path.read_text
+        def guard(path, *a, **kw):
+            if str(path).endswith(".jsonl") and "projects" in str(path):
+                raise AssertionError(f"a transcript read whole: {path}")
+            return real(path, *a, **kw)
+        with mock.patch.object(Path, "read_text", guard):
+            self.once()
         self.assertEqual(self.n("named 'idler'"), 1)
         self.assertEqual(inbox.mode_of("idler")[0], "chat")
 

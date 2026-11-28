@@ -124,6 +124,37 @@ def _find_transcripts(needle: str) -> List[Path]:
     return hits
 
 
+def file_has(p: Path, needle: str) -> bool:
+    """Whether a (possibly huge) file contains the needle — without loading it: ``grep -qF``, else a streaming scan."""
+    try:
+        return subprocess.run(["grep", "-qF", needle, str(p)], capture_output=True, timeout=60).returncode == 0
+    except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        return False
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            return any(needle in line for line in f)
+    except OSError:
+        return False
+
+
+TAIL_BYTES = 4 << 20   # how much of a transcript's end ``tail_lines`` reads
+
+
+def tail_lines(p: Path, max_bytes: Optional[int] = None) -> List[str]:
+    """The last lines of a (possibly huge) file, reading at most ``max_bytes`` from its end; the first, cut line is
+    dropped when the read did not start at the beginning."""
+    max_bytes = max_bytes or TAIL_BYTES
+    with open(p, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        size = f.tell()
+        f.seek(max(0, size - max_bytes))
+        data = f.read()
+    lines = data.decode("utf-8", errors="replace").splitlines()
+    return lines[1:] if size > max_bytes and lines else lines
+
+
 def _transcript_cwd(p: Path) -> Optional[str]:
     """The exact cwd recorded in a transcript (every record carries it); fall back to decoding the project directory
     name, which loses dashes (``-home-u-my-proj`` → ``/home/u/my/proj``)."""

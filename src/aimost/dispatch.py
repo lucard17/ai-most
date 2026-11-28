@@ -297,10 +297,8 @@ def _one(box: inbox.Inbox, n: int, agents: list, entry: dict) -> None:
             tp = transcript_of(str(lv[0].get("sessionId") or ""))
             role_session = False
             if tp:
-                try:
-                    role_session = '"agentSetting":"' in tp.read_text(errors="replace")
-                except OSError:
-                    pass
+                # transcripts grow to hundreds of MB: never read one whole (the service has a memory cap)
+                role_session = connections.file_has(tp, '"agentSetting":"')
             if lv[0].get("kind") == "background" or role_session:
                 inbox.set_mode(name, "chat", if_unset=True)
                 log(f"{name}: live role or background session without a mode label — chat")
