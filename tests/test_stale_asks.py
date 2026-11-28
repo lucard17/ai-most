@@ -42,6 +42,12 @@ class Reminder(SessionTest):
         (paths.marks_dir() / "probe.owner-words").write_text("1")
         self.assertIsNotNone(stale_asks.reminder("probe", self.tp), "the owner answered in words from chat")
 
+    def test_tool_printed_wake_up_is_not_owner_words(self):
+        """A restart prints /wake-up into the pane: not the owner speaking (found in the live check of auto mode)."""
+        self.append(self.sid, self.user("human", "<command-message>wake-up</command-message>\n<command-name>/wake-up"
+                                                 "</command-name>", uid="u9"), {"type": "assistant", "message": {"content": "ok"}})
+        self.assertIsNone(stale_asks.reminder("probe", self.tp))
+
     def test_owner_typed_mid_turn(self):
         self.turn("peer", "u4")
         self.append(self.sid, self.queued("human"))
