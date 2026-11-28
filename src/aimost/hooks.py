@@ -756,7 +756,7 @@ def peer_guard(inp: dict) -> Result:
         return deny(inp, f"{pre}: files are edited only in scratch directories ({', '.join(writable_roots())}), not "
                          f"{f}. {how}")
     cmd = str((inp.get("tool_input") or {}).get("command") or "")
-    m = re.match(r"^AIMOST_CONFIRM=([0-9a-f]{8})\b", cmd)
+    m = confirm.LEADING_RE.match(cmd)
     if m:
         refused = merge_refused(name, m.group(1), cmd, inp)
         if refused:

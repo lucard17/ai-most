@@ -34,11 +34,16 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from . import connections, inbox, mattermost, paths, questions
+from . import names
 from .names import P
 
 TTL_S = 900
 ID_RE = re.compile(r"^[0-9a-f]{8}$")
-PREFIX_RE = re.compile(r"AIMOST_CONFIRM=([0-9a-f]{8})")
+# the command prefix that spends a confirmation: AIMOST_CONFIRM=<id>; on a server with another props prefix (D17) also
+# <PREFIX>_CONFIRM=<id> — the spelling the earlier version taught its roles
+_VARS = ["AIMOST"] + ([names.PREFIX.upper()] if names.PREFIX != "aimost" else [])
+PREFIX_RE = re.compile(r"(?:" + "|".join(_VARS) + r")_CONFIRM=([0-9a-f]{8})")
+LEADING_RE = re.compile(r"^(?:" + "|".join(_VARS) + r")_CONFIRM=([0-9a-f]{8})\b")
 
 DEFAULT_CONFIRM = [
     r"\bterraform\s+apply\b",
