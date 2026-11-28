@@ -139,9 +139,13 @@ def file_has(p: Path, needle: str) -> bool:
         return False
 
 
-def tail_lines(p: Path, max_bytes: int = 4 << 20) -> List[str]:
+TAIL_BYTES = 4 << 20   # how much of a transcript's end ``tail_lines`` reads
+
+
+def tail_lines(p: Path, max_bytes: Optional[int] = None) -> List[str]:
     """The last lines of a (possibly huge) file, reading at most ``max_bytes`` from its end; the first, cut line is
     dropped when the read did not start at the beginning."""
+    max_bytes = max_bytes or TAIL_BYTES
     with open(p, "rb") as f:
         f.seek(0, os.SEEK_END)
         size = f.tell()

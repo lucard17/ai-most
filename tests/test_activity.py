@@ -69,12 +69,17 @@ class Offline(IsolatedTest):
         d = self.tmp / "claude" / "projects" / "x"
         d.mkdir(parents=True)
         os.environ["CLAUDE_CONFIG_DIR"] = str(self.tmp / "claude")
-        filler = json.dumps({"type": "user", "message": {"content": "я" * 2000}}) + "\n"
+        filler = json.dumps({"type": "user", "message": {"content": "x" * 2000}}) + "\n"
         old = json.dumps({"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Old", "input": {}}]}})
         new = json.dumps({"type": "assistant", "message": {"content": [
             {"type": "tool_use", "name": "Edit", "input": {"file_path": "/x.py"}}]}})
-        with open(d / "s2.jsonl", "w", encoding="utf-8") as f:
-            f.write(old + "\n" + filler * 1500 + new + "\n")       # ≈6 MB: more than the tail read
+        with open(d / "s2.jsonl", "w", encoding="utf-8") as f:    # more than the tail read (lowered for the test)
+            f.write(old + "\n")
+            for _ in range(100):
+                f.write(filler)
+            f.write(new + "\n")
+        mock.patch.object(connections, "TAIL_BYTES", 64 << 10).start()
+        self.addCleanup(mock.patch.stopall)
         real = Path.read_text
         def guard(path, *a, **kw):
             if str(path).endswith(".jsonl"):
