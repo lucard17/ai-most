@@ -16,7 +16,7 @@ import uuid
 from helpers import IsolatedTest
 from itenv import IT, requires_mattermost
 
-from aimost import askstore, inbox, plugins, waiting
+from aimost import askstore, inbox, plugins, questions, waiting
 from aimost import mattermost as mm
 from aimost import post as postmod
 
@@ -442,6 +442,44 @@ class Real(IsolatedTest):
                                                        "at": at + 2}})
         waiting.on_post(self.conn, p)
         self.assertEqual(len(sink.calls), 1, "nobody claims it — not answered")
+
+    def test_sink_supplies_its_buttons_and_its_plugin_marks_the_answer_done(self):
+        sink = Sink()
+        url = "/plugins/tracker/actions/answer"
+        sink.buttons = lambda spec, n: [{"name": o, "integration": {"url": url, "context": {
+            "v": 1, "q": spec["ref"], "part": n, "option": m}}} for m, o in enumerate(spec["parts"][n - 1]["options"], 1)]
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
+        q, pid = self.ask("close T-9?", sink="tracker", ref="T-9")
+        props = self.post(pid)["props"]
+        self.assertEqual([(a["id"], a["name"]) for a in props["attachments"][0]["actions"]], [("p1s1", "yes"), ("p1s2", "no")],
+                         "the sink's buttons only — no edge buttons, no own-answer button")
+        acts = props["aimost_ask"]["parts"][0]["actions"]    # the server hides integration from readers; the spec keeps it
+        self.assertEqual([(a["id"], a["name"], a["integration"]["url"], a["integration"]["context"]) for a in acts],
+                         [("p1s1", "yes", url, {"v": 1, "q": "T-9", "part": 1, "option": 1}),
+                          ("p1s2", "no", url, {"v": 1, "q": "T-9", "part": 1, "option": 2})],
+                         "the sink's buttons only — no edge buttons, no own-answer button")
+        # the sink's plugin took the press of a colleague (its side checks rights) and merged the mark into the props
+        p = self.mark(pid, "aimost_answers", {"1": {"option": 2, "by": "colleague", "done": "tracker",
+                                                   "user_id": IT["AIMOST_IT_USER_ID_COLLEAGUE"],
+                                                   "at": int(time.time() * 1000)}})
+        waiting.on_post(self.conn, p)
+        self.assertEqual(sink.calls, [], "a done mark is not passed to the sink again")
+        self.assertEqual([e["text"] for e in self.events()],
+                         [f"answer to {q} item 1 «close T-9?» → tracker: no, recorded by tracker"])
+        p = self.post(pid)
+        self.assertTrue(p["message"].startswith("✅"), p["message"])
+        self.assertNotIn("actions", p["props"]["attachments"][0], "drawn again: the answer instead of the buttons")
+        self.assertEqual((p["props"]["aimost_question"], p["props"]["agent"]), (q, self.asker), "props kept")
+        waiting.on_post(self.conn, p)
+        self.assertEqual(self.events(), [], "once")
+        self.assertEqual(askstore.asks(self.asker)[q]["state"], "answered")
+
+    def test_a_sink_with_broken_buttons_refuses_the_question(self):
+        sink = Sink()
+        sink.buttons = lambda spec, n: [{"name": "yes"}]
+        plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
+        with self.assertRaises(questions.AskError):
+            self.ask("close T-10?", sink="tracker", ref="T-10")
 
     def test_sink_refusal_is_posted(self):
         plugins.ANSWER_SINKS["tracker"] = ("gitlab", Sink(refuse=True))

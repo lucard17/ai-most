@@ -153,9 +153,13 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
     ap = ctx.state("answered")
     answered = set(_jload(ap, []))
     parts = spec.get("parts") or []
+    redraw = False
     for part, a in sorted((props.get(P("answers")) or {}).items()):
         k = f"{p['id']}:{part}:{a.get('at')}"
-        if k in answered or a.get("user_id") not in allowed:
+        # ``done`` — the sink's own side took the press and recorded the answer (its plugin wrote the mark): nothing is
+        # passed to the sink, whoever pressed — that side checked the rights
+        done = str(a.get("done") or "") if sink else ""
+        if k in answered or not done and a.get("user_id") not in allowed or not a.get("user_id"):
             continue
         answered.add(k)
         _jsave(ap, sorted(answered)[-5000:])
@@ -167,7 +171,11 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
         shown = _shown(parts, n, a)
         by = ctx.user(a["user_id"])["username"]
         thread = p.get("root_id") or p["id"]
-        if sink:
+        if done:
+            redraw = True
+            text = f"answer to {q} item {part} «{title}» → {sink}: {shown}, recorded by {done}"
+            role = "owner" if a["user_id"] == ctx.owner else "person"
+        elif sink:
             text = _to_sink(ctx, sink, q, n, a, title, p, thread, who, spec.get("ref") or "")
             if text is None:
                 continue
@@ -178,9 +186,25 @@ def on_answers(ctx: Ctx, p: dict, who: Optional[str]) -> None:
         if connections.admitted(ctx.c, asker):
             put_event(asker, text, sender=by, kind="answer", via=ctx.name, role=role, thread=thread)
         log(f"[{ctx.name}] {q} item {part} → {asker}")
+    if redraw and not gone:
+        _redraw(ctx, p, q, spec, who)
     if rec and rec.get("post") == p["id"] and rec.get("state", "open") == "open" and not gone \
             and askstore.ask_state(p) == "answered":
         askstore.ask_record(asker, {"q": q, "state": "answered"})
+
+
+def _redraw(ctx: Ctx, p: dict, q: str, spec: dict, who: Optional[str]) -> None:
+    """A question whose answer marks a sink's plugin wrote: drawn again — the chosen answer instead of the buttons. The
+    patch keeps the post's props (a patch replaces them whole)."""
+    props = p.get("props") or {}
+    answers = {k: {**({"option": m["option"]} if m.get("option") else {"text": m.get("text", "")}), "by": m["by"]}
+               for k, m in (props.get(P("answers")) or {}).items() if m.get("by")}
+    msg, atts = questions.render(q, spec, answers, props.get("agent"), questions.client_auth(ctx.c),
+                                 questions.action_url(ctx.c))
+    try:
+        ctx.api("PUT", f"/posts/{p['id']}/patch", {"message": msg, "props": {**props, "attachments": atts}}, who=who)
+    except Exception as e:
+        log(f"[{ctx.name}] {q}: not redrawn: {e}")
 
 
 def _to_sink(ctx: Ctx, sink: str, q: str, part: int, a: dict, title: str, p: dict, thread: str,

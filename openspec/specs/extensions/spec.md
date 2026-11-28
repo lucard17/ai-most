@@ -62,6 +62,20 @@ Test: `tests/test_waiting.py` (Real.test_sink_gets_only_the_owners_answer, Real.
 Test: `tests/test_waiting.py` (Real.test_sink_gets_its_own_question_id,
 Real.test_a_question_an_earlier_version_posted_is_answered_through_the_sink_that_claims_it)
 
+#### Scenario: the sink's own buttons; its side marks the answer done
+- **WHEN** the sink has `buttons(spec, part)` and a role asks through it — the spec carries `ref` (the id on the sink's
+  side); the sink returns Mattermost actions (each a `name` and an `integration.url`, e.g. a plugin-relative
+  `/plugins/<id>/…` with its own `context`)
+- **THEN** that item shows only the sink's buttons (ids `p<part>s<n>`, no edge buttons, no own-answer button), kept in the
+  spec so the edge redraws them; broken actions refuse the question before it is posted
+- **WHEN** the side that took the press merges into the post's props the mark `<prefix>_answers = {"<part>": {option | text,
+  by, user_id, at, "done": "<who recorded it>"}}`
+- **THEN** nothing is passed to the sink (whoever pressed — that side checked the rights), the asking session gets an
+  `answer` event "… → <sink>: <answer>, recorded by <done>" once, the question counts as answered, and the bridge redraws
+  the post (the answer instead of the buttons, the other props kept)
+Test: `tests/test_waiting.py` (Real.test_sink_supplies_its_buttons_and_its_plugin_marks_the_answer_done,
+Real.test_a_sink_with_broken_buttons_refuses_the_question), `tests/test_questions.py` (SinkButtons)
+
 ### Requirement: Text checks form a pipeline
 Outgoing text SHALL pass the built-in checks and then enabled `text_check` plugins in a fixed order; the first refusal stops
 the post with its exit code (plugins use codes 20–39) and hint. A check MAY rewrite text (e.g. expand a reference into a

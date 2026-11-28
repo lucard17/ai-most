@@ -115,5 +115,26 @@ class Misc(unittest.TestCase):
         self.assertIn("actions", post["props"]["attachments"][0])
 
 
+class SinkButtons(unittest.TestCase):
+    def test_a_part_with_the_sinks_buttons_shows_them_instead_of_the_edges(self):
+        acts = q.sink_actions([{"name": "yes", "integration": {"url": "/plugins/x/a", "context": {"option": 1}}},
+                               {"name": "no", "integration": {"url": "/plugins/x/a"}}], 2)
+        self.assertEqual([(a["id"], a["type"], a["integration"]["context"]) for a in acts],
+                         [("p2s1", "button", {"option": 1}), ("p2s2", "button", {})])
+        spec = {"context": "", "parts": [{"title": "a?", "text": "", "options": ["x", "y"]},
+                                         {"title": "b?", "text": "", "options": ["yes", "no"], "actions": acts}]}
+        _, atts = q.render("ask-1", spec, {}, "role", {"secret": "s"}, "http://edge/action")
+        self.assertEqual([a["id"] for a in atts[0]["actions"]], ["p1o1", "p1o2", "p1custom"])
+        self.assertEqual(atts[1]["actions"], acts)
+        _, atts = q.render("ask-1", spec, {"2": {"option": 1, "by": "owner"}}, "role", {"secret": "s"}, "http://edge/action")
+        self.assertNotIn("actions", atts[1])
+
+    def test_broken_sink_buttons_are_refused(self):
+        for bad in ([], None, [{"name": "x"}], [{"integration": {"url": "/a"}}], [{"name": " ", "integration": {"url": "/a"}}],
+                    [{"name": "x", "integration": {"url": "/a", "context": "s"}}], ["x"]):
+            with self.assertRaises(q.AskError, msg=repr(bad)):
+                q.sink_actions(bad, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

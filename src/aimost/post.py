@@ -27,7 +27,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
-from . import askstore, connections, inbox, mattermost, paths, questions, textcheck
+from . import askstore, connections, inbox, mattermost, paths, plugins, questions, textcheck
 from .names import P
 
 
@@ -352,6 +352,14 @@ class Poster:
             spec["ref"] = ref
         d = self.check(textcheck.Draft("", ask=spec, to=spec["to"], channel_id=cid, invite=invite, layout=True))
         spec = d.ask
+        own = getattr(plugins.sink(self.conn, sink), "buttons", None) if sink else None
+        if own:
+            # the sink's own buttons (its plugin takes the press) — kept in the spec: the edge redraws the post from it
+            for n, part in enumerate(spec["parts"], 1):
+                part.pop("actions", None)
+                got = own(spec, n)
+                if got:
+                    part["actions"] = questions.sink_actions(got, n)
         if self.sig:
             spec["context"] = self.sign(spec.get("context") or "")   # in the spec: the edge redraws the post from it
         qid = questions.new_id()

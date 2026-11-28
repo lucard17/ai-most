@@ -3,7 +3,9 @@
 Pure functions — the posting itself is ``post.Poster.ask``; the edge redraws a pressed question with the same ``render``.
 
 An ask spec — ``{"context": "…", "parts": [{"title", "text", "options": […], "rec": N}], "to": [logins],
-"mention": [logins], "discuss": bool, "sink": "<answer-sink key>"}``. ``rec`` is an option number (1…). Each button's
+"mention": [logins], "discuss": bool, "sink": "<answer-sink key>", "ref": "<id on the sink's side>"}``. ``rec`` is an
+option number (1…); a part may carry ``actions`` — buttons its answer sink supplied (``sink_actions``), shown instead
+of the edge's. Each button's
 context carries only what the edge needs to find and verify the question — the spec and answers live in the post's
 props (``aimost_ask``, ``aimost_answers``): a context with the whole spec, repeated per button, made big questions exceed
 the server's request limit.
@@ -125,6 +127,8 @@ def render(q: str, spec: dict, answers: Dict[str, dict], agent: Optional[str], a
         att = {"title": f"{n}. {part['title']}", "text": part.get("text") or ""}
         if a:
             att["text"] += f"\n✅ **{_shown(part, a)}** — @{a['by']}"
+        elif part.get("actions"):
+            att["actions"] = part["actions"]
         else:
             ctx = {"q": q, "part": n, **auth, "agent": agent}
             att["actions"] = [{"id": f"p{n}o{m}", "name": ("⭐ " if m == part.get("rec") else "") + str(opt),
@@ -154,6 +158,23 @@ def render(q: str, spec: dict, answers: Dict[str, dict], agent: Optional[str], a
         ask = titles[0] if len(titles) == 1 else "\n".join(f"{n}. {t}" for n, t in enumerate(titles, 1))
         head = ("".join(" @" + u for u in tag)[1:] + "\n" if tag else "") + "❓ " + (context + "\n" if context else "") + ask
     return head + f"\n_Answered {len(answers)} of {len(parts)}._", atts
+
+
+def sink_actions(got, n: int) -> List[dict]:
+    """A sink's buttons for item ``n`` (``buttons(spec, part)``) checked: Mattermost actions, each with a name and an
+    ``integration.url``; ids and the type are filled in. Anything else — ``AskError`` (the question is not posted)."""
+    if not isinstance(got, list) or not got:
+        raise AskError(f"item {n}: the sink's buttons — a non-empty list of actions")
+    out = []
+    for m, a in enumerate(got, 1):
+        i = a.get("integration") if isinstance(a, dict) else None
+        if not (isinstance(a.get("name") if i else None, str) and a["name"].strip() and isinstance(i, dict)
+                and isinstance(i.get("url"), str) and i["url"].strip()
+                and isinstance(i.get("context", {}), dict)):
+            raise AskError(f"item {n}, button {m}: an action needs a name and integration.url")
+        out.append({"id": f"p{n}s{m}", "type": "button", "name": a["name"],
+                    "integration": {"url": i["url"], "context": dict(i.get("context") or {})}})
+    return out
 
 
 def title(spec: dict) -> str:

@@ -85,4 +85,9 @@ No dependencies; Python ≥ 3.8.
 
 A change of behaviour starts in the spec (`openspec/specs/<area>/spec.md`, each scenario names its test).
 
+## Related
+
+- [ai-plan](https://github.com/lucard17/ai-plan) — a planning tool whose questions are answered with ai-most's buttons
+  (its answer sink supplies the buttons, its Mattermost plugin takes the press).
+
 License: MIT.
