@@ -821,7 +821,11 @@ class Admin:
             return {"ephemeral_text": f"admin: refused — {e}"}
 
 
-BUTTON_PATH = "/admin-press"
+# where the confirmation buttons call the edge; a server moving from an earlier version keeps its old path
+# (``EDGE_ADMIN_BUTTON_PATH``), so confirmation posts made before the swap still accept presses
+BUTTON_PATH = os.environ.get("EDGE_ADMIN_BUTTON_PATH", "").strip() or "/admin-press"
+if not re.fullmatch(r"/[a-z][a-z0-9-]{0,31}", BUTTON_PATH):
+    raise SystemExit(f"aimost admin: EDGE_ADMIN_BUTTON_PATH={BUTTON_PATH!r} — expected /[a-z][a-z0-9-]{{0,31}}")
 
 
 def command_name() -> str:
