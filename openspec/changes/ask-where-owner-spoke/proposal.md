@@ -16,9 +16,12 @@ behaves like an explicit one.
   chat event handed to the session (a message, an answer by button, a reaction). The latest of the two wins.
 - Explicit labels keep their meaning: `chat` — questions always in chat; `cli` — always in the terminal, no waking.
 - `aimost inbox mode <role>` prints `auto (…)` with the derived delivery and where a question would go now.
+- New chat command `/agent mode <role> [cli|chat|auto]` (owner only, ephemeral answer) — the same setting from Mattermost
+  (l17 28.11).
+- Unchanged: an unlabelled session without a bot and not in `WAKE_LIST` stays `cli` (not woken, questions in the terminal).
 
 ## Impact
-- Specs: delivery ("Session mode"), authority ("A session with a bot asks the owner in chat").
+- Specs: delivery ("Session mode"), authority ("A session with a bot asks the owner in chat"), commands (new `/agent mode`).
 - Code: `inbox.mode_of` (report `auto`), `inbox.write_turn_marks` (owner mark with via and thread), `hooks.ask_guard`,
   `turn_origin` (last typed input time), `cli_inbox mode`.
 - Behaviour change for every unlabelled role with a bot: a question after the owner typed in the terminal is asked there.

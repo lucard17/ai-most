@@ -12,6 +12,10 @@ Check: `python3 -m unittest tests.test_turn_origin tests.test_inbox` (new cases 
 - [ ] spec scenarios above as tests (AskGuardAuto, SessionMode)
 Check: `python3 -m unittest tests.test_hooks tests.test_inbox`; full suite green
 
-## 3. Live check
+## 3. Chat command
+- [ ] `/agent mode <role> [cli|chat|auto]` — bridge command, owner only, ephemeral; refuses `cli` for a background session
+Check: `python3 -m unittest tests.test_commands` (Mode)
+
+## 4. Live check
 - [ ] l17's machine: an unlabelled role with a bot — type in its terminal, it asks → terminal dialog; answer a button in its thread, it asks → chat in that thread
 Check: two transcripts / posts named in the PR
