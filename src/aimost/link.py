@@ -52,7 +52,7 @@ import urllib.error
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from . import activity, askstore, commands, connections, heartbeat, inbox, linkctx, mattermost, paths, waiting, ws
+from . import activity, askstore, commands, connections, heartbeat, inbox, linkctx, mattermost, paths, waiting, ws, looparb
 from .names import P
 
 Connection = connections.Connection
@@ -378,6 +378,45 @@ class Link:
             return True
         return any(r.get("user_id") == self.owner for r in (x.get("metadata") or {}).get("reactions") or [])
 
+    # ── the edge's loop arbiter (``looparb``) ───────────────────────────────────────────────────────────────────────
+    def root_post(self, root: str, who: str) -> dict:
+        roots = self.__dict__.setdefault("roots", {})
+        if root not in roots:
+            roots[root] = self.api("GET", f"/posts/{root}", who=who) or {}
+        return roots[root]
+
+    def edge_paused(self, p: dict, who: str) -> bool:
+        """A bot's post in a thread with a valid pause mark of the edge, later than its ``at`` — the role is not woken. A
+        person's post in the thread after ``at`` and before this post lifts the pause here at once."""
+        root = p.get("root_id")
+        if not root or not self.user(p["user_id"]).get("is_bot"):
+            return False
+        m = looparb.valid_mark(self.c, self.root_post(root, who))
+        if not m or p["create_at"] <= m.get("at", 0):
+            return False
+        if any(not x.get("type") and not self.user(x["user_id"]).get("is_bot") and m["at"] < x["create_at"] < p["create_at"]
+               for x in self.thread(root, who)):
+            return False
+        log(f"[{self.name}] {who}: thread {root[:6]}: paused by the edge, post {p['id'][:6]} not delivered")
+        return True
+
+    def loop_note(self, p: dict) -> None:
+        """The edge's mark on a root (the edit comes with the pass): the owner among its owners — a "loop in a thread" line
+        of "Waiting for you" (``waiting``)."""
+        if p.get("root_id"):
+            return
+        path = self.ctx.state("loops")
+        loops = jload(path, {})
+        m = looparb.valid_mark(self.c, p)
+        mine = bool(m) and self.c.get("OWNER") in (m.get("owners") or [])
+        if mine and loops.get(p["id"], {}).get("id") != m["id"]:
+            loops[p["id"]] = {"id": m["id"], "at": m["at"], "authors": m.get("authors") or [], "channel": p.get("channel_id")}
+        elif not mine and p["id"] in loops:
+            loops.pop(p["id"])
+        else:
+            return
+        jsave(path, loops)
+
     def loop_guard(self, p: dict, who: str, ch: Optional[dict] = None) -> bool:
         root = p.get("root_id")
         if not root or (ch or {}).get("name") in self.loop_free:
@@ -619,7 +658,7 @@ class Link:
     # ── the pass ───────────────────────────────────────────────────────────────────────────────────────────────────
     def once(self, only: Optional[Set[str]] = None) -> None:
         """A pass over the bots' posts (``only`` — just these: a websocket event came for them; None — all)."""
-        self.threads = {}
+        self.threads, self.roots = {}, {}
         for who in self.bots:
             if only is not None and who not in only:
                 continue
@@ -681,6 +720,7 @@ class Link:
                 self.on_reactions(p, who, st, ch, mentioned=True)
         # new or edit: "new" is created after the previous pass — update_at also moves on another bot's reaction.
         # An edit that ADDED a mention of this role is a message, once per post and role.
+        self.loop_note(p)
         got = st.setdefault("got", [])
         edit_mention = p["create_at"] <= base and p.get("edit_at") and p["id"] not in got \
             and self.handle[who] in mentions(p)
@@ -702,7 +742,7 @@ class Link:
             u = self.unrouted.setdefault(p["id"], {"p": p, "hit": False, "passes": 0, "who": who, "expect": False,
                                                    "at": time.time()})
             u["expect"] = u.get("expect") or self.expects_agent(p, ch)
-        if not why or self.loop_guard(p, who, ch):
+        if not why or self.edge_paused(p, who) or self.loop_guard(p, who, ch):
             return
         chn = "dm" if ch.get("type") == "D" else ch.get("name", "")
         to = connections.thread_route(self.c, who, p.get("root_id") or "") or who

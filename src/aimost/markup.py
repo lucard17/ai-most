@@ -19,6 +19,7 @@ PARA_MAX = 350      # about three lines on a phone
 FLAT_MAX = 500      # longer than this — not without a single structure line
 
 STRUCT = re.compile(r"^\s*(?:[-*+]\s|\d+[.)]\s|\*\*|#{1,6}\s|\|)")
+TABLE_ROW = re.compile(r"^\s*\|")
 MENTIONS_ONLY = re.compile(r"^\s*(?:@[\w.-]+[\s,]*)+$")
 HINT = ("the form of a post: the first line — the point in one sentence; then fields in **bold:**, each on its own line; "
         "lists — as `- ` items; a paragraph — up to three lines. A quote or a log — --plain")
@@ -56,7 +57,9 @@ def problem(text: str) -> Optional[str]:
             continue
         worst = max(worst, len(" ".join(run)))
         run = []
-    longest = max(len(x.strip()) for x in body)      # a field line and a list item too: "**What:** …; **not:** …" at 600
+    # a field line and a list item too: "**What:** …; **not:** …" at 600. A table row is not: a cell does not break into
+    # lines, several values in it go with <br>
+    longest = max([len(x.strip()) for x in body if not TABLE_ROW.match(x)] or [0])
     if longest > PARA_MAX and longest >= worst:
         return f"a line of {longest} characters (limit {PARA_MAX}) — each field and item on its own line. " + HINT
     if worst > PARA_MAX:

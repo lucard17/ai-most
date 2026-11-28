@@ -147,4 +147,4 @@ class Real(IsolatedTest):
     def test_no_admin_token(self):
         r = self.aimost("bot", "add", "scout", "--desc", "x", "--via", "it")
         self.assertEqual(r.returncode, 2)
-        self.assertIn("no admin token", r.stderr)
+        self.assertIn("no bot of the admin role", r.stderr, "no admin token — the bot is asked for through the edge")

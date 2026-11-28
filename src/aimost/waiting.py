@@ -386,6 +386,10 @@ def waiting_rows(ctx: Ctx, snoozed: bool = False, now_ms: Optional[float] = None
                          "title": r.get("title") or q, "link": ctx.link(r.get("post")), "q": q, "asker": who,
                          "key": q, "section": r.get("sink") or CHAT_SECTION})
     rows += _sink_rows(ctx)
+    for root, m in _jload(ctx.state("loops"), {}).items():   # the edge's loop arbiter paused a thread of my bots
+        rows.append({"blocking": False, "at": m.get("at") or now, "who": " ↔ ".join(m.get("authors") or []),
+                     "title": "loop in a thread — bots answered each other without a person", "link": ctx.link(root),
+                     "key": "loop:" + root, "loop": root, "section": CHAT_SECTION})
     sn = askstore.snoozes(ctx.name, now_ms=now)
     if snoozed:
         rows = [dict(r, until=sn[r["key"]].get("until")) for r in rows if r["key"] in sn]
@@ -414,6 +418,9 @@ def render_pin(ctx: Ctx, rows: List[dict], later: List[dict], now_ms: float):
         if r.get("q"):
             acts.append({"id": f"drop{i}", "name": "not relevant", "type": "button", "integration": {
                 "url": url, "context": {"kind": "waiting-drop", "q": r["q"], "asker": r["asker"], "to": own, **auth}}})
+        if r.get("loop"):
+            acts.append({"id": f"loop{i}", "name": "continue", "type": "button", "integration": {
+                "url": url, "context": {"kind": "loop-continue", "root": r["loop"], "to": own, **auth}}})
         acts.append(menu(r, "snooze…", [("a day", "1d"), ("a week", "7d"), ("until I say", "forever")], i))
         atts.append({"text": ("🔴 " if r["blocking"] else "") + f"{r['who']} · {r['title'][:100]}", "actions": acts})
     atts = atts[:19]

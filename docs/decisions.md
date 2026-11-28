@@ -188,6 +188,23 @@ name upstream spelled differently (`chat_agents_catalog`) is mapped; under anoth
 the earlier version (`CHAT_CONFIRM=<id>` for `chat`) is accepted next to `AIMOST_CONFIRM=<id>` — roles keep their habits. Behaviour under another prefix is tested by running
 the behaviour suites again under `chat` (`test_names`).
 
+## D18. Admin actions are an optional plugin; the loop arbiter is core — 2026-11-28
+
+Two upstream changes after the D8 freeze point. The admin role (`chat-admin`): admin actions executed by the edge after a
+confirmer's press, so no admin secret lives on any owner's machine. Ported as the optional built-in plugin `aimost_admin`
+(admin spec) — a generic need of any team of agents, but an admin power nobody should get by default. The company-specific
+parts became settings: who may ask for what (`EDGE_ADMIN_ORIGINS`, default — the edge owner only), the log channel
+(`EDGE_ADMIN_LOG_CHANNEL`, `ADMIN_CHANNEL`), the role's bot (`EDGE_ADMIN_REQUESTER`, `ADMIN_BOT`), the command's name
+(`AIMOST_ADMIN_COMMAND`, `admin`; set `chat-admin` to keep an upstream registration). The edge got a small extension point
+for it: `reg.edge_route(path, fn)` — a plugin's own button endpoint with its own keys. `aimost bot add` asks for
+`bot-create` / `bot-enable` when there is no admin token, with `--admit` for the token the owner put into the file.
+
+The loop arbiter (`chat-loop-guard-real-loop`) is core (`looparb`): loops between bots of different people are seen only
+by the edge. Its prop and preference names go through `names.P` (`<prefix>_loop_pause`, `<prefix>_loop_cleared`).
+
+Dropped as deployment-specific: revoking sudo on the chat host, the CI deploy key of the edge, the read-only database role —
+preconditions of a deployment, not code. The table-row exemption of the layout check came along.
+
 ## Open
 
 - Python floor: 3.8 (current) or 3.10 (pattern matching, better typing) — decide at step 3.

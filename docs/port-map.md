@@ -59,6 +59,7 @@ registers them.
 | `openspec/specs/chat-text` (7 req) | core, split | "MR — link with title", cold reader → plugin/private |
 | `openspec/changes/*` (15 open) | — | ported one by one as they land upstream (D8) |
 | catch-up after the freeze, upstream `b5b7cb7..5fba1e5` (D8, D16) | ~1.2k | core ✅ | confirm described by fields + template + `merges`-only merge coverage (authority spec); `chat-post` markup guard → `markup.py`, text check `layout`, code 11 (text spec); `chat-shell-quote-guard` → hook `quote-guard`; orphan wake DM with `--plain`. MR cards → GitLab plugin. Dropped: the harness class of a card, the review-closing announce template, the `mr-merge` wrapper (workspace tools) |
+| catch-up 2, upstream `5fba1e5..44e9492` (D8, D18) | ~2.3k | optional plugin ✅ + core ✅ | `chat-admin` role → `src/aimost_admin/` (executor in the edge, `aimost admin request|actions`, `aimost bot add` through it), settings instead of role names; loop arbiter → `src/aimost/looparb.py` + bridge pause check and pin line; markup table rows. Dropped: host/CI/database preconditions |
 
 ## Upstream specs → ai-most specs
 

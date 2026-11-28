@@ -21,6 +21,8 @@ Environment:
     EDGE_OWNER_TTL_S     cache of a bot's owner (300)
     EDGE_RELOAD_S        how often the edge checks its own code and re-executes on change (1; 0 — never)
     EDGE_UNFOLLOW_EVERY_S  period of the /unfollow sweep (900; 0 — no sweep thread)
+    EDGE_LOOP            ``off`` — no loop arbiter; EDGE_LOOP_EVERY_S (20), EDGE_LOOP_LIMIT (6), EDGE_LOOP_RENEW_S (6 h),
+                         EDGE_LOOP_FREE_CHANNELS, EDGE_CHANNEL_OWNERS (``<channel>:<bot login>``) — see ``looparb``
     AIMOST_PROPS_PREFIX  prefix of the names in post props (``aimost``) — the same as the bridges of this server use
                          (``names``); ``GET /version`` reports it
 """
@@ -46,6 +48,8 @@ from . import names
 from .names import P
 
 Reply = Tuple[int, dict]
+# path → handler(edge, body) -> Reply: plugin button endpoints with their own keys (``plugins.Registrar.edge_route``)
+POST_ROUTES: Dict[str, Callable[["Edge", dict], Reply]] = {}
 
 RETRY = "Could not read the question from the chat server — press again in a few seconds."
 # Mobile Mattermost submits a dialog with the channel open in the app, not the post's channel: from a thread opened via a
@@ -55,7 +59,7 @@ MOBILE_HINT = "📱 From a phone the dialog may fail to submit — then answer i
 # props a redraw keeps (a patch replaces props whole): who wrote the post — the session and the relay bot it posted
 # through; the pin key (``aimost post --pin``); the "discuss in DM" marks
 KEPT_PROPS = ("agent", "relay", P("pin"), P("discuss"))
-SPECIAL_KINDS = ("confirm", "waiting-drop", "waiting-snooze", "discuss")
+SPECIAL_KINDS = ("confirm", "waiting-drop", "waiting-snooze", "discuss", "loop-continue")
 
 
 def gone_text(c: dict) -> str:
@@ -386,6 +390,14 @@ class Edge:
                                                "count. Write your opinion in the thread."}
             return 200, {"ephemeral_text": f"This question is for {', '.join('@' + x for x in to)}: buttons are taken "
                                            "only from the addressee. Write your opinion in the thread."}
+        if kind == "loop-continue":
+            # "continue" on a "loop in a thread" line of the pin: who may — by the mark on the root, not by the context
+            from . import looparb
+            why = looparb.arbiter(self).cont(str(ctx.get("root") or ""), uid, ctx.get("kid"))
+            if why:
+                self.log(f"loop: continue refused ({user}): {why}")
+                return 200, {"ephemeral_text": f"Not lifted: {why}."}
+            return 200, {"ephemeral_text": "Going on: the pause is lifted, the next posts of the thread reach the roles."}
         if kind == "waiting-drop":
             # "no longer relevant" in the "Waiting for you" pin: a mark in the pin's props; the owner's bridge drops it
             self._patch_marks(post_id, P("waiting_drop"), ctx["q"],
@@ -479,6 +491,8 @@ class Edge:
             return 400, {}
         if not isinstance(body, dict):
             return 400, {}
+        if p.path in POST_ROUTES:          # a plugin's own buttons (``reg.edge_route``): their own keys and checks
+            return POST_ROUTES[p.path](self, body)
         if p.path == "/dialog":
             return self.handle_dialog(body)
         if p.path == "/action":
@@ -576,8 +590,10 @@ def make_server(edge: Edge, reload_s: Optional[float] = None, argv: Optional[Lis
 
 def serve(edge: Edge) -> None:
     from . import edgecmds
+    from . import looparb
     every = float(edge.env.get("EDGE_UNFOLLOW_EVERY_S", "900"))
     if every > 0:
         threading.Thread(target=edgecmds.unfollow_loop, args=(edge, every), daemon=True).start()
+    looparb.start(edge)
     edge.log(f"listening on {edge.listen}, Mattermost {edge.mm_url}, buttons call {edge.public}, version {__version__}")
     make_server(edge).serve_forever()
