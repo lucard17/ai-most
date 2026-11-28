@@ -16,6 +16,7 @@ Plugins may add services: ``SERVICES`` holds extra (file name, template text) pa
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -120,6 +121,43 @@ def install_systemd(start: bool, out: Callable[[str], None] = print) -> List[str
         out("! no bots yet — units installed but not started: put a bot token into "
             f"{paths.config_dir() / 'bots'}/<connection>/<role> (or `aimost bot add`), then run `aimost setup` again")
     return changed
+
+
+def _version_key(v: str) -> Tuple[int, ...]:
+    return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
+
+
+def unit_version(p: Path) -> Optional[str]:
+    """Version of the ``aimost`` package a unit runs: from its ``PYTHONPATH``. ``None`` — no unit or no such line,
+    ``""`` — the directory is gone (an older plugin version removed from the cache)."""
+    try:
+        text = p.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    m = re.search(r"^Environment=PYTHONPATH=(.+)$", text, re.M)
+    if not m:
+        return None
+    try:
+        init = (Path(m.group(1).strip()) / "aimost" / "__init__.py").read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    v = re.search(r'^__version__\s*=\s*"([^"]+)"', init, re.M)
+    return v.group(1) if v else ""
+
+
+def refresh_after_update(out: Callable[[str], None] = print) -> List[str]:
+    """The core units run an older ai-most than this one (a plugin update) or a removed one — rewrite and restart them,
+    as ``aimost setup`` would. Never a downgrade: a session still on the old plugin version leaves newer units alone.
+    Nothing when the units are not installed (setup was never run) or the service manager is not systemd."""
+    from . import __version__
+    if service_manager() != "systemd":
+        return []
+    vs = [unit_version(unit_dir() / u) for u in CORE_UNITS]
+    if any(v is None for v in vs):
+        return []
+    if not any(v == "" or _version_key(v) < _version_key(__version__) for v in vs):
+        return []
+    return install_systemd(start=has_bots(), out=out)
 
 
 def install_launchd(out: Callable[[str], None] = print) -> List[str]:

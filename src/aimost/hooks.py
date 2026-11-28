@@ -771,9 +771,20 @@ def peer_guard(inp: dict) -> Result:
     return PASS
 
 
+def units_hook(inp: dict) -> Result:
+    """SessionStart: after a plugin update the background services still run the old version until ``aimost setup`` —
+    move them to this one (``install.refresh_after_update``). Fails open and silent; one line when it moved them."""
+    from . import __version__, install
+    try:
+        changed = install.refresh_after_update(out=lambda m: None)
+    except Exception:
+        return PASS
+    return Result(stdout=f"ai-most: background services moved to {__version__}") if changed else PASS
+
+
 HOOKS: Dict[str, Callable[[dict], Result]] = {
     "inbox": inbox_hook, "ask-guard": ask_guard, "confirm-guard": confirm_guard, "peer-guard": peer_guard,
-    "quote-guard": quote_guard}
+    "quote-guard": quote_guard, "units": units_hook}
 
 
 def run(name: str, raw: str) -> Result:

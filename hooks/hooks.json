@@ -1,6 +1,9 @@
 {
   "description": "ai-most: inbox delivery mid-turn and at the end of the turn; guards for chat-started turns. Silent where the bridge is not set up.",
   "hooks": {
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook units"}]}
+    ],
     "PostToolUse": [
       {"matcher": "*", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook inbox"}]},
       {"matcher": "Bash", "hooks": [{"type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/bin/aimost-hook gitlab"}]}

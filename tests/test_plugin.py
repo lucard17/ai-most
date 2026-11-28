@@ -34,7 +34,7 @@ class Manifest(IsolatedTest):
                     self.assertTrue(m, h["command"])
                     self.assertIn(m.group(1), set(hooks.HOOKS) | {"gitlab"})
                     got.add((event, g.get("matcher", ""), m.group(1)))
-        self.assertEqual(got, {("PostToolUse", "*", "inbox"), ("PostToolUse", "Bash", "gitlab"), ("Stop", "", "inbox"),
+        self.assertEqual(got, {("SessionStart", "", "units"), ("PostToolUse", "*", "inbox"), ("PostToolUse", "Bash", "gitlab"), ("Stop", "", "inbox"),
                                ("PreToolUse", "AskUserQuestion", "ask-guard"),
                                ("PreToolUse", "Bash", "confirm-guard"), ("PreToolUse", "Bash", "quote-guard"),
                                ("PreToolUse", "Bash|Edit|Write|NotebookEdit", "peer-guard")})
