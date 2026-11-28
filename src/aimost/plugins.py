@@ -43,7 +43,9 @@ KINDS = ("transport", "source", "delivery", "command", "answer_sink", "text_chec
 # (``ref`` — the question's id on the sink's side, given with ``aimost post --ask … --sink <key> --ref <id>``; optional
 # ``claims(q) -> bool`` — question ids of posts an earlier bridge version wrote for this side, answered through it) (the
 # result reported to the asking session; raise ``SinkRefused`` to refuse) and optionally ``rows(conn) -> [row]`` — its
-# own open questions to the owner (row: key, title, at, link, blocking). Read by ``waiting``.
+# own open questions to the owner (row: key, title, at, link, blocking), and ``buttons(spec, part) -> [action] | None`` —
+# its own buttons for an item (Mattermost actions; its side takes the press and marks ``<prefix>_answers[part].done``).
+# Read by ``waiting`` and ``post``.
 ANSWER_SINKS: Dict[str, tuple] = {}
 
 
