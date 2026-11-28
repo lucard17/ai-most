@@ -1,6 +1,6 @@
 {
   "name": "ai-most",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Bridge between Claude Code sessions and Mattermost: chat posts reach the session's inbox mid-turn or at the end of the turn, a turn started by a peer is read-only, dangerous commands from chat need the owner's button.",
   "author": {"name": "lucard17"},
   "homepage": "https://github.com/lucard17/ai-most",
