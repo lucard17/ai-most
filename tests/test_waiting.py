@@ -446,13 +446,15 @@ class Real(IsolatedTest):
     def test_sink_supplies_its_buttons_and_its_plugin_marks_the_answer_done(self):
         sink = Sink()
         url = "/plugins/tracker/actions/answer"
-        sink.buttons = lambda spec, n: [{"name": o, "integration": {"url": url, "context": {
+        seen = []
+        sink.buttons = lambda spec, n, conn=None: seen.append(conn["NAME"]) or [{"name": o, "integration": {"url": url, "context": {
             "v": 1, "q": spec["ref"], "part": n, "option": m}}} for m, o in enumerate(spec["parts"][n - 1]["options"], 1)]
         plugins.ANSWER_SINKS["tracker"] = ("gitlab", sink)
         q, pid = self.ask("close T-9?", sink="tracker", ref="T-9")
         props = self.post(pid)["props"]
         self.assertEqual([(a["id"], a["name"]) for a in props["attachments"][0]["actions"]], [("p1s1", "yes"), ("p1s2", "no")],
                          "the sink's buttons only — no edge buttons, no own-answer button")
+        self.assertEqual(seen, ["it"], "the sink gets the connection")
         acts = props["aimost_ask"]["parts"][0]["actions"]    # the server hides integration from readers; the spec keeps it
         self.assertEqual([(a["id"], a["name"], a["integration"]["url"], a["integration"]["context"]) for a in acts],
                          [("p1s1", "yes", url, {"v": 1, "q": "T-9", "part": 1, "option": 1}),

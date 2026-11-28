@@ -18,6 +18,7 @@ Exit codes: 2 usage, 3 not admitted / no bot / someone else's post, 4–7 text c
 from __future__ import annotations
 
 import hashlib
+import inspect
 import os
 import re
 import subprocess
@@ -357,7 +358,7 @@ class Poster:
             # the sink's own buttons (its plugin takes the press) — kept in the spec: the edge redraws the post from it
             for n, part in enumerate(spec["parts"], 1):
                 part.pop("actions", None)
-                got = own(spec, n)
+                got = own(spec, n, **({"conn": self.conn} if _takes_conn(own) else {}))
                 if got:
                     part["actions"] = questions.sink_actions(got, n)
         if self.sig:
@@ -475,3 +476,13 @@ def open_asks(role: str) -> List[str]:
     out.append(f"open questions: {len(out)}" +
                (' — cancel what is stale: aimost post --cancel <ask-id> "<why>"' if out else ""))
     return out
+
+
+def _takes_conn(fn) -> bool:
+    """Whether a sink's ``buttons`` takes the connection (``conn=``, as ``answer`` and ``rows`` get it): sinks written
+    for ``buttons(spec, part)`` keep working."""
+    try:
+        ps = inspect.signature(fn).parameters.values()
+    except (TypeError, ValueError):
+        return False
+    return any(x.name == "conn" or x.kind is x.VAR_KEYWORD for x in ps)

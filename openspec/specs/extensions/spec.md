@@ -63,7 +63,7 @@ Test: `tests/test_waiting.py` (Real.test_sink_gets_its_own_question_id,
 Real.test_a_question_an_earlier_version_posted_is_answered_through_the_sink_that_claims_it)
 
 #### Scenario: the sink's own buttons; its side marks the answer done
-- **WHEN** the sink has `buttons(spec, part)` and a role asks through it — the spec carries `ref` (the id on the sink's
+- **WHEN** the sink has `buttons(spec, part)` (given `conn=` — the connection — when it takes it) and a role asks through it — the spec carries `ref` (the id on the sink's
   side); the sink returns Mattermost actions (each a `name` and an `integration.url`, e.g. a plugin-relative
   `/plugins/<id>/…` with its own `context`)
 - **THEN** that item shows only the sink's buttons (ids `p<part>s<n>`, no edge buttons, no own-answer button), kept in the
