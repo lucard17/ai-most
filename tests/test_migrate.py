@@ -35,6 +35,9 @@ class Migrate(IsolatedTest):
         (self.old_state / "chat-activity" / "avatars" / "a.png").write_text("x")
         (self.old_state / "chat-activity" / "status.json").write_text("{}")
         (self.old_state / "chat-mr-watch").mkdir()
+        (self.old_state / "chat-mr-watch" / "watch.json").write_text(json.dumps({"mrs": {"api!7": {
+            "project": "g/api", "iid": 7, "session": "deployer", "seen": {"note_id": 3}}}}))
+        (self.old_state / "chat-mr-watch" / "watch.json.lock").write_text("")
         for d, f in (("chat-confirm", "deployer.chat"), ("chat-link", "work.snooze.json"), ("chat-asks", "deployer.jsonl")):
             (self.old_state / d).mkdir()
             (self.old_state / d / f).write_text("1\n")
@@ -46,9 +49,8 @@ class Migrate(IsolatedTest):
         before = self.snapshot()
         r = self.aimost("migrate")
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("dry run: 11 to copy, 0 kept", r.stdout)
+        self.assertIn("dry run: 12 to copy, 0 kept", r.stdout)
         self.assertIn("! work: PLAN is not read by ai-most", r.stdout)
-        self.assertIn("chat-mr-watch not imported", r.stdout)
         self.assertEqual(self.snapshot(), before)
         self.assertFalse((self.tmp / "config" / "connections").exists())
 
@@ -67,6 +69,10 @@ class Migrate(IsolatedTest):
         self.assertFalse((st / "activity" / "avatars").exists())
         self.assertTrue((st / "activity" / "status.json").exists())
         self.assertEqual((self.tmp / "config" / "wake.list").read_text(), "deployer\n")
+        self.assertFalse((self.tmp / "state" / "gitlab" / "watch.json.lock").exists(), "locks are not copied")
+        from aimost_gitlab import watch
+        with watch.State() as st:
+            self.assertEqual(st.d["mrs"]["api!7"]["session"], "deployer", "linked MRs keep being watched")
         for rel in ("marks/deployer.chat", "link/work.snooze.json", "asks/deployer.jsonl"):
             self.assertTrue((st / rel).is_file(), rel)
         tok = self.tmp / "config" / "bots" / "work" / "deployer"
@@ -78,7 +84,7 @@ class Migrate(IsolatedTest):
         (self.tmp / "config" / "private-patterns").write_text("mine\n")
         r = self.aimost("migrate", "--apply")
         self.assertIn("= kept", r.stdout)
-        self.assertIn("copied 10", r.stdout)
+        self.assertIn("copied 11", r.stdout)
         self.assertEqual((self.tmp / "config" / "private-patterns").read_text(), "mine\n")
         r = self.aimost("migrate", "--apply")
         self.assertIn("copied 0", r.stdout)
