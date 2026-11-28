@@ -116,19 +116,26 @@ def owner_typed_since(path: str, since: float) -> bool:
     return False
 
 
+# Session-lifecycle commands that tools print into the pane (a restart prints /wake-up, self-compaction /compact and
+# /wake-up): typed by a program, not the owner's word to the session.
+LIFECYCLE = re.compile(r"^\s*(?:/wake-up\s*$|/(?:compact|self-compact)\b|<command-message>(?:wake-up|compact|self-compact)"
+                       r"</command-message>|<command-name>/(?:wake-up|compact|self-compact)</command-name>)")
+
+
 def typed_in_turn(path: str) -> int:
     """When the owner last typed into the session in the current turn (epoch; 0 — not in this turn): the turn start when it
     is ``human``, else the newest mid-turn ``queued_command`` of ``origin.kind=human`` after it. A wake-up or a session's
-    message starting the turn, and typing in an earlier turn, do not count."""
+    message starting the turn, typing in an earlier turn, and a lifecycle command a tool printed (``LIFECYCLE``) do not
+    count."""
     recs = tail(path)
     i = turn_start(recs)
     if i is None:
         return 0
-    at = ts(recs[i]) if classify(recs[i]) == "human" else 0
+    at = ts(recs[i]) if classify(recs[i]) == "human" and not LIFECYCLE.match(_text(recs[i])) else 0
     for r in recs[i + 1:]:
         a = r.get("attachment") or {}
         if r.get("type") == "attachment" and a.get("type") == "queued_command" \
-                and (a.get("origin") or {}).get("kind") == "human":
+                and (a.get("origin") or {}).get("kind") == "human" and not LIFECYCLE.match(str(a.get("prompt") or "")):
             at = max(at, ts(r))
     return at
 

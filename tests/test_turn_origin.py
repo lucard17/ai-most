@@ -116,5 +116,15 @@ class TypedInTurn(SessionTest):
         self.assertAlmostEqual(self.at(self.user("human", "/inbox", offset_s=-90), self.queued("human", -30)),
                                time.time() - 30, delta=3)
 
+    def test_lifecycle_commands_printed_by_tools_do_not_count(self):
+        """A restart prints /wake-up into the pane, self-compaction /compact: not the owner's word."""
+        for t in ("<command-message>wake-up</command-message>\n<command-name>/wake-up</command-name>", "/wake-up",
+                  "/compact keep pointers", "<command-name>/self-compact</command-name>"):
+            self.assertEqual(self.at(self.user("human", t)), 0, t)
+        q = self.queued("human", -5)
+        q["attachment"]["prompt"] = "/wake-up"
+        self.assertEqual(self.at(self.user("human", "/inbox"), q), 0)
+        self.assertGreater(self.at(self.user("human", "/wake-up please, and then do X")), 0, "own words after it count")
+
     def test_no_transcript(self):
         self.assertEqual(to.typed_in_turn(str(self.tmp / "none.jsonl")), 0)

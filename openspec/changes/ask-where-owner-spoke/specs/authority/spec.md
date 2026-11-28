@@ -5,8 +5,9 @@ A session that has a bot SHALL ask the owner where the owner spoke last. With an
 chat (`aimost post --ask`); with an explicit `cli` label — in the terminal. Without a label (`auto`): the terminal dialog
 (AskUserQuestion) SHALL be allowed when the owner typed into the session in the current turn (started it by typing, or typed into
 it mid-turn) and no owner's chat event was handed to the session after that; otherwise it SHALL be refused with a hint to `--ask`
-in the thread of the owner's latest chat event (the DM when there is none). An inbox wake-up, a session's message and the owner's
-typing in an earlier turn MUST NOT count as the owner typing. Sessions without a bot and subagents are not affected.
+in the thread of the owner's latest chat event (the DM when there is none). An inbox wake-up, a session's message, a session-lifecycle command a tool
+printed into the pane (`/wake-up`, `/compact`, `/self-compact`) and the owner's typing in an earlier turn MUST NOT count as the
+owner typing. Sessions without a bot and subagents are not affected.
 
 #### Scenario: a question in the terminal, label chat
 - **WHEN** a session with a bot and the label `chat` calls the terminal question dialog
@@ -36,3 +37,9 @@ NEW. Test: `tests/test_hooks.py` (AskGuardAuto)
   the session calls the terminal question dialog
 - **THEN** refused with a hint to `--ask` (the owner's latest chat thread, or the DM)
 NEW. Test: `tests/test_hooks.py` (AskGuardAuto)
+
+#### Scenario: auto, a restart printed /wake-up
+- **WHEN** the owner's button answer from thread `t3` was handed to the session, then a restart printed `/wake-up` into its pane,
+  and the session calls the terminal question dialog
+- **THEN** refused with `--thread t3`
+NEW. Test: `tests/test_turn_origin.py` (TypedInTurn.test_lifecycle_commands_printed_by_tools_do_not_count)
