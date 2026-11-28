@@ -1,5 +1,12 @@
 #!/bin/sh
 # aimost from this directory without installing anything (the Claude Code plugin, a plain checkout):
 # the package is in ../src next to this script. A pip-installed `aimost` on PATH works the same.
+# Inside the Claude Code plugin cache (…/plugins/cache/<market>/<plugin>/<version>/bin) a session's PATH may still point at
+# an older version after a plugin update: run the newest version installed next to this one (never an older one).
 root=$(cd "$(dirname "$0")/.." && pwd)
+case "$root" in
+  */plugins/cache/*)
+    newest=$(for d in "$(dirname "$root")"/*/src/aimost; do [ -d "$d" ] && echo "${d%/src/aimost}"; done | sort -V 2>/dev/null | tail -1)
+    [ -n "$newest" ] && root=$newest ;;
+esac
 PYTHONPATH="$root/src${PYTHONPATH:+:$PYTHONPATH}" exec "${AIMOST_PYTHON:-python3}" -m aimost "$@"

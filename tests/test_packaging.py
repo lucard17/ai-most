@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import io
+import os
+import subprocess
 import shutil
 import tempfile
 import unittest
@@ -50,3 +52,37 @@ class Wheel(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CachedLauncher(unittest.TestCase):
+    """bin/aimost of an older version in the Claude Code plugin cache runs the newest version installed next to it."""
+
+    def make(self, base, version):
+        d = Path(base) / "plugins" / "cache" / "m" / "ai-most" / version
+        (d / "bin").mkdir(parents=True)
+        shutil.copy(ROOT / "bin" / "aimost", d / "bin" / "aimost")
+        (d / "src" / "aimost").mkdir(parents=True)
+        (d / "src" / "aimost" / "__init__.py").write_text("")
+        (d / "src" / "aimost" / "__main__.py").write_text(f"print('{version}')\n")
+        return d / "bin" / "aimost"
+
+    def run_it(self, launcher):
+        env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+        return subprocess.run(["sh", str(launcher)], capture_output=True, text=True, env=env).stdout.strip()
+
+    def test_old_runs_newest_never_older(self):
+        with tempfile.TemporaryDirectory() as t:
+            old, new = self.make(t, "0.1.3"), self.make(t, "0.1.10")
+            self.make(t, "0.1.9")
+            self.assertEqual(self.run_it(old), "0.1.10", "semantic order, not text order")
+            self.assertEqual(self.run_it(new), "0.1.10")
+
+    def test_outside_the_cache_runs_itself(self):
+        with tempfile.TemporaryDirectory() as t:
+            d = Path(t) / "checkout"
+            (d / "bin").mkdir(parents=True)
+            shutil.copy(ROOT / "bin" / "aimost", d / "bin" / "aimost")
+            (d / "src" / "aimost").mkdir(parents=True)
+            (d / "src" / "aimost" / "__init__.py").write_text("")
+            (d / "src" / "aimost" / "__main__.py").write_text("print('checkout')\n")
+            self.assertEqual(self.run_it(d / "bin" / "aimost"), "checkout")
