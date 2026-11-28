@@ -18,7 +18,7 @@ from aimost import names
 
 TESTS = Path(__file__).resolve().parent
 SUITES = ["test_edge", "test_questions", "test_waiting", "test_confirm", "test_post", "test_commands", "test_link",
-          "test_agents", "test_askstore", "test_activity"]
+          "test_agents", "test_askstore", "test_activity", "test_hooks"]
 NAMES = sorted(set(re.findall(r'P\("([a-z_]+)"\)', "".join(p.read_text() for p in (Path(helpers.SRC) / "aimost").glob("*.py")))))
 
 
@@ -43,6 +43,14 @@ class Names(unittest.TestCase):
                                  capture_output=True, env={**{k: v for k, v in os.environ.items() if not k.startswith("AIMOST_")},
                                                            "PYTHONPATH": helpers.SRC, "AIMOST_CONFIG_DIR": t})
             self.assertEqual(out.stdout.strip(), "chat_answers", out.stderr)
+
+    def test_confirm_prefix_of_the_earlier_version(self):
+        code = ("from aimost import confirm as c; print(bool(c.LEADING_RE.match('CHAT_CONFIRM=c0ffee00 x')),"
+                " bool(c.LEADING_RE.match('AIMOST_CONFIRM=c0ffee00 x')))")
+        run = lambda prefix: subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                                            env=dict(os.environ, PYTHONPATH=helpers.SRC, AIMOST_PROPS_PREFIX=prefix)).stdout.split()
+        self.assertEqual(run("chat"), ["True", "True"], "CHAT_CONFIRM=<id> spends a confirmation under prefix chat")
+        self.assertEqual(run("aimost"), ["False", "True"], "only AIMOST_CONFIRM by default")
 
     def test_the_names_found(self):
         self.assertTrue({"answers", "ask", "question", "confirm", "pin", "unfollow", "heartbeat", "command"} <= set(NAMES))

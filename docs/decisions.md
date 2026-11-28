@@ -184,7 +184,8 @@ renamed only the prefix). A team moving from upstream has open questions, pins, 
 own reading those props. So the prefix is a setting (`names.P`): `AIMOST_PROPS_PREFIX` or `<config>/props-prefix` on the
 owner's machine, `AIMOST_PROPS_PREFIX` for the edge; default `aimost`. One process, one prefix (names end up in module
 constants); the bridge and the edge of a server must agree — the edge reports its prefix in `GET /version`. The single
-name upstream spelled differently (`chat_agents_catalog`) is mapped. Behaviour under another prefix is tested by running
+name upstream spelled differently (`chat_agents_catalog`) is mapped; under another prefix the confirmation prefix of
+the earlier version (`CHAT_CONFIRM=<id>` for `chat`) is accepted next to `AIMOST_CONFIRM=<id>` — roles keep their habits. Behaviour under another prefix is tested by running
 the behaviour suites again under `chat` (`test_names`).
 
 ## Open
