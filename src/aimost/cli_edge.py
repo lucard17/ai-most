@@ -16,6 +16,8 @@ def main(argv: List[str]) -> int:
     sub.add_parser("serve", help="listen on EDGE_LISTEN")
     sub.add_parser("check", help="check the configuration and the bot token, then exit")
     sub.add_parser("version", help="print the edge version")
+    sub.add_parser("loop-once", help="one pass of the loop arbiter, then exit")
+    sub.add_parser("loop-clear", help="lift every pause the loop arbiter set")
     a = ap.parse_args(argv)
     if a.cmd == "version":
         print(__version__)
@@ -26,6 +28,11 @@ def main(argv: List[str]) -> int:
     if err:
         print(f"aimost edge: {err}", file=sys.stderr)
         return 2
+    if a.cmd in ("loop-once", "loop-clear"):
+        from . import looparb
+        arb = looparb.arbiter(e)
+        arb.pass_() if a.cmd == "loop-once" else arb.clear()
+        return 0
     if a.cmd == "check":
         try:
             e.me()

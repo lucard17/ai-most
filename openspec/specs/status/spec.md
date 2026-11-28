@@ -57,8 +57,9 @@ bot's token or through a webhook with a substituted name MUST NOT happen.
 
 #### Scenario: the role's bot is deactivated
 - **WHEN** `aimost bot add` for a role whose bot is deactivated
-- **THEN** the bot is enabled, the token is new and written to a file, not printed
-Test: `tests/test_botadmin.py`
+- **THEN** the bot is enabled, the token is new and written to a file, not printed; without an admin token — a `bot-enable`
+  request to the edge (admin spec)
+Test: `tests/test_botadmin.py`, `tests/test_admin.py` (Requester.test_bot_add_without_an_admin_token_asks)
 
 ### Requirement: Bots for other people are created by a chat admin
 Bots for other people SHALL be created by a chat admin (`aimost bot add --owner <login>`, description required): the bot is

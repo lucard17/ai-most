@@ -36,7 +36,7 @@ from .connections import Connection, _split
 
 GROUP = "aimost.plugins"
 BUILTIN = {"aimost_gitlab": "gitlab"}   # module → plugin name
-OPTIONAL = {"aimost_health": "health"}  # shipped, off unless listed (PLUGINS / AIMOST_PLUGINS)
+OPTIONAL = {"aimost_health": "health", "aimost_admin": "admin"}  # shipped, off unless listed (PLUGINS / AIMOST_PLUGINS)
 KINDS = ("transport", "source", "delivery", "command", "answer_sink", "text_check", "admission")
 
 # answer sinks: key → (plugin name, sink). A sink is an object with ``answer(conn, q, part, answer, title[, ref]) -> str``
@@ -174,6 +174,12 @@ class Registrar:
         """A slash command (``commands.Command``)."""
         from . import commands
         self._pending.append(lambda: enabled_anywhere(self.plugin.name) and commands.register(cmd))
+
+    def edge_route(self, path: str, fn: Callable) -> None:
+        """A POST endpoint of the edge for the plugin's own buttons: ``fn(edge, body) -> (code, reply)`` (``edge.POST_ROUTES``).
+        The plugin checks its own keys — the edge's button keys do not cover it."""
+        from . import edge
+        self._pending.append(lambda: enabled_anywhere(self.plugin.name) and edge.POST_ROUTES.__setitem__(path, fn))
 
     def service(self, name: str, template: str) -> None:
         """A background unit for ``aimost setup``: ``*.service``/``*.timer`` (systemd) or ``*.plist`` (launchd), with the

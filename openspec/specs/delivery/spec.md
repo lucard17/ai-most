@@ -78,6 +78,21 @@ SHALL post "⏸ waiting for a person" in it. In channels listed in `LOOP_FREE_CH
 
 Endless bot-to-bot talk MUST NOT wake roles.
 
+Bots of different people are caught by the edge, which sees every post (the loop arbiter, `looparb`): a link is a bot's
+post after another bot's post addressed to it (`@B`; for bots of the same human owner also: B started the thread, owns the
+channel — `EDGE_CHANNEL_OWNERS` — or talked there after being mentioned); a person's post or a bot post a person touched
+breaks the chain. More than `EDGE_LOOP_LIMIT` (6) links with at least two authors SHALL put a signed mark
+`<prefix>_loop_pause` on the thread root — no post in the thread; DMs, group messages and `EDGE_LOOP_FREE_CHANNELS` are not
+read; the text of posts is neither stored nor logged. A bridge MUST NOT wake a role by a bot post later than a valid mark
+(its own button key; renewed within `EDGE_LOOP_MAX_S`) unless a person wrote in the thread after the mark; the mark's owners
+SHALL see a "loop in a thread" line in "Waiting for you" with "continue". The edge SHALL lift the mark on a person's post
+or on "continue" pressed by an owner of the loop's bots, renew it every `EDGE_LOOP_RENEW_S`, and remove a mark it did not set.
+
+#### Scenario: bots of two people answer each other
+- **WHEN** two bots of different people answer each other's mentions for the seventh time in a thread without a person
+- **THEN** a mark on the root, no new post in the thread, no role woken by the thread, a "loop in a thread" line for both owners
+Oracle: `chat-loop-edge.test.sh`. Test: `tests/test_looparb.py` (Chain, Mark, Lifting, Bridge)
+
 #### Scenario: bots answer each other
 - **WHEN** the seventh bot post in a row without a person appears in a thread
 - **THEN** no delivery, "⏸ waiting for a person" in the thread

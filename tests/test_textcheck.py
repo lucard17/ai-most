@@ -38,6 +38,8 @@ class Layout(unittest.TestCase):
         para = "\n".join(["short point"] + ["word " * 15] * 5)
         self.assertIn("a paragraph of", markup.problem(para))
         self.assertIn("a line of", markup.problem("Point.\n**What:** " + "a; " * 130))
+        table = "Status.\n| part | MR |\n| --- | --- |\n| core | " + "repo!1 <br>" * 90 + " |"
+        self.assertIsNone(markup.problem(table), "a table row is not limited: a cell does not break into lines")
         flat = "\n\n".join(["Point."] + ["a short paragraph " * 5] * 6)
         self.assertIn("without a single field, list or heading", markup.problem(flat))
         good = "Point.\n\n**What:** a change\n**Why:** a reason\n\n" + "\n".join("- item " * 6 for _ in range(10))
