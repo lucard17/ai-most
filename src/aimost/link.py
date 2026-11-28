@@ -787,6 +787,29 @@ def _subscribe(cmd: str):
     return run
 
 
+def _mode(link: "Link", role: str, payload: dict, caller_role: str) -> str:
+    """``/agent mode <role> [cli|chat|auto]`` — as ``aimost inbox mode``; a background session is never set to cli."""
+    args = [a for a in (payload.get("args") or [])[1:] if a]
+    if args:
+        value = args[0]
+        if value not in ("cli", "chat", "auto"):
+            return "mode is cli, chat or auto: `/agent mode <role> cli|chat|auto`."
+        if value == "cli":
+            from . import dispatch
+            if any(a.get("kind") == "background" for a in dispatch.live(dispatch.agents_list() or [], role)):
+                return f"refused: {role} is a background session — in cli mode nobody reads its terminal."
+        inbox.set_mode(role, value)
+    m, src = inbox.mode_of(role)
+    if src.startswith("label"):
+        where = "questions in the terminal" if m == "cli" else "questions in chat"
+        return f"{role}: {m} ({src}) — {where}."
+    if m == "cli":
+        return f"{role}: {m} (auto: {src}) — not woken, questions in the terminal."
+    return (f"{role}: {m} (auto: {src}) — woken by the inbox; a question goes where you spoke last: the terminal when you "
+            "typed into its turn, else chat.")
+
+
+BRIDGE_COMMANDS[("agent", "mode")] = _mode
 BRIDGE_COMMANDS[("agent", "mute")] = _subscribe("mute")
 BRIDGE_COMMANDS[("agent", "follow")] = _subscribe("follow")
 

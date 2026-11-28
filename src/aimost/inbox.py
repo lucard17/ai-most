@@ -213,7 +213,9 @@ def write_turn_marks(role: str, acked: List[Event]) -> None:
     <role>.chat        the owner's chat message — the turn is "from chat" (confirmation guard);
     <role>.owner-words the owner spoke not by a button (stale-questions reminder);
     <role>.peer        a peer's chat post — the turn is read-only (peer guard). Set even when the batch also holds the
-                       owner's message: the cursor is linear, an owner's message in any thread must not clear it."""
+                       owner's message: the cursor is linear, an owner's message in any thread must not clear it;
+    <role>.owner-at    "<epoch> <via> <thread>" — the owner's latest chat word handed out (a message, an answer, a reaction):
+                       where an unlabelled session asks the owner (``ask_place``)."""
     owner = [e for e in acked if e.get("role") == "owner" and e.get("via")]
     peers = sorted({str(e.get("from") or "") for e in acked if is_peer(e)})
     md = None
@@ -230,6 +232,30 @@ def write_turn_marks(role: str, acked: List[Event]) -> None:
         mark(".owner-words", str(int(time.time())))
     if peers:
         mark(".peer", ", ".join(peers))
+    spoke = [e for e in owner if e.get("kind") in ("message", "answer", "reaction")]
+    if spoke:
+        last = spoke[-1]
+        mark(".owner-at", f"{int(time.time())} {last.get('via')} {last.get('thread') or ''}".rstrip())
+
+
+def owner_at(role: str) -> Tuple[int, str, str]:
+    """(epoch, via, thread) of the owner's latest chat word handed to the role; (0, "", "") — none."""
+    try:
+        at, via, *thread = (paths.marks_dir() / f"{valid_name(role)}.owner-at").read_text().split()
+        return int(at), via, (thread[0] if thread else "")
+    except (FileNotFoundError, ValueError):
+        return 0, "", ""
+
+
+def ask_place(role: str, transcript: str = "") -> Tuple[str, str, str, int, int]:
+    """Where an unlabelled session asks the owner: ("terminal" | "chat", via, thread, typed_at, chat_at). The terminal when
+    the owner typed into this turn after their latest chat word; else chat, in that word's thread (empty — the DM)."""
+    from . import turn_origin
+    typed = turn_origin.typed_in_turn(transcript) if transcript else 0
+    at, via, thread = owner_at(role)
+    if typed and typed > at:
+        return "terminal", "", "", typed, at
+    return "chat", via, thread, typed, at
 
 
 # ── formatting ─────────────────────────────────────────────────────────────────────────────────────────────────────────

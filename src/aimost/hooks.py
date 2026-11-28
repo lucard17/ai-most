@@ -216,23 +216,38 @@ def inbox_hook(inp: dict) -> Result:
 
 # ── ask guard ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 def ask_guard(inp: dict) -> Result:
+    """A session with a bot asks the owner where the owner spoke last (authority spec): label ``cli`` — the terminal,
+    label ``chat`` — chat; no label — the terminal when the owner typed into this turn after their latest chat word, else
+    chat in that word's thread."""
     if not paths.inbox_dir().is_dir() or inp.get("agent_id"):
         return PASS
     name = role_of(inp.get("session_id") or "")
-    if not name or inbox.mode_of(name)[0] == "cli":
+    if not name:
+        return PASS
+    mode, source = inbox.mode_of(name)
+    if mode == "cli":
         return PASS  # CLI mode: the terminal is the way to ask
     conn = connections.own_connection(name)
     if not conn or not connections.bot(conn, name):
         return PASS
-    via, who = conn["NAME"], conn.get("OWNER", "")
+    via, who, thread, why = conn["NAME"], conn.get("OWNER", ""), "", ""
+    if not source.startswith("label"):
+        place, v, thread, typed, at = inbox.ask_place(name, str(inp.get("transcript_path") or ""))
+        if place == "terminal":
+            return PASS
+        via = v or via
+        hm = lambda t: time.strftime("%H:%M", time.localtime(t)) if t else "—"  # noqa: E731
+        why = (f"\nMode auto: the owner's latest word — chat {hm(at)}, typed into this turn {hm(typed)}; the question goes "
+               "to chat. Questions always in the terminal — `/session-config mode cli` (or `/agent mode <role> cli`).")
     q = " / ".join(str(x.get("question") or "") for x in (inp.get("tool_input") or {}).get("questions") or []
                    if isinstance(x, dict))[:300]
+    where = f"--thread {thread}" if thread else ("--thread <task thread>" if source.startswith("label") else "")
+    cmd = " ".join(x for x in ("aimost post", f"--via {via}", where, f"--to {who}") if x)
     return deny(inp, (
-        f"🗨 aimost ask-guard: session «{name}» has a bot in chat — a blocking question is asked in Mattermost, not in the "
-        "terminal.\nAsk with buttons in the task's thread and end the turn — the answer arrives in the inbox as an "
-        f"`answer` event:\n  aimost post --via {via} --thread <task thread> --to {who} --ask \"@{who} {q or '<question>'}\" "
-        "\"<option (recommended)>\" \"<option>\"…\nNo thread — `--channel <role channel> --new-thread`, or the DM (no "
-        "--channel/--thread). Several questions — `--ask <spec.json>`."))
+        f"🗨 aimost ask-guard: session «{name}» has a bot in chat — this blocking question is asked in Mattermost, not in "
+        "the terminal.\nAsk with buttons and end the turn — the answer arrives in the inbox as an `answer` event:\n  "
+        f"{cmd} --ask \"@{who} {q or '<question>'}\" \"<option (recommended)>\" \"<option>\"…\nNo thread — `--channel "
+        "<role channel> --new-thread`, or the DM (no --channel/--thread). Several questions — `--ask <spec.json>`." + why))
 
 
 # ── confirm guard ──────────────────────────────────────────────────────────────────────────────────────────────────────

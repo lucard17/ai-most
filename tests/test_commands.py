@@ -61,7 +61,8 @@ class Registry(Base):
         got = {(n, s): c.kind for n in commands.names() for s, c in commands.subcommands(n).items()}
         self.assertEqual(got, {("unfollow", ""): "edge", ("bot-token", ""): "edge", ("agent", "status"): "edge",
                                ("agent", "who"): "edge", ("agent", "waiting"): "bridge", ("agent", "mute"): "bridge",
-                               ("agent", "follow"): "bridge", ("agent", "ask"): "session"})
+                               ("agent", "follow"): "bridge", ("agent", "mode"): "bridge",
+                               ("agent", "ask"): "session"})
 
     def test_help_lists_only_what_the_caller_may_use(self):
         self.mm.user("UH", "nobots")
@@ -283,3 +284,35 @@ class BotToken(Base):
 if __name__ == "__main__":
     import unittest
     unittest.main()
+
+
+class Mode(IsolatedTest):
+    """`/agent mode <role> [cli|chat|auto]` — the bridge side (commands spec: the owner sets a session's mode from chat).
+    Who may call it is the core's check, as for every bridge command (test_link: test_command_closed_to_the_caller)."""
+
+    def run_mode(self, *args, agents=()):
+        from aimost import dispatch, link
+        old = dispatch.agents_list
+        dispatch.agents_list = lambda: list(agents)
+        try:
+            return link.BRIDGE_COMMANDS[("agent", "mode")](None, "workbench", {"args": ["workbench", *args]}, "owner")
+        finally:
+            dispatch.agents_list = old
+
+    def test_away_from_the_laptop(self):
+        from aimost import inbox
+        out = self.run_mode("chat")
+        self.assertIn("workbench: chat (label", out)
+        self.assertIn("questions in chat", out)
+        self.assertEqual(inbox.mode_of("workbench")[0], "chat")
+        self.assertIn("auto: ", self.run_mode("auto"))
+
+    def test_show_and_bad_value(self):
+        self.assertIn("workbench: cli (auto: default)", self.run_mode())
+        self.assertIn("mode is cli, chat or auto", self.run_mode("phone"))
+
+    def test_background_never_cli(self):
+        from aimost import inbox
+        out = self.run_mode("cli", agents=[{"name": "workbench", "kind": "background", "status": "idle"}])
+        self.assertIn("refused", out)
+        self.assertNotEqual(inbox.mode_of("workbench")[1][:5], "label")

@@ -546,3 +546,51 @@ class NoChat(SessionTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AskGuardAuto(AskGuard):
+    """No label: the question goes where the owner spoke last in this turn (terminal) or in chat."""
+
+    def setUp(self):
+        super().setUp()
+        inbox.set_mode(self.ROLE, "auto")
+
+    def ask(self, sid, **kw):
+        kw.setdefault("transcript_path", str(self.transcript(sid)))
+        return super().ask(sid, **kw)
+
+    def owner_event(self, kind="answer", thread="t1"):
+        box = inbox.Inbox(self.ROLE)
+        box.put("yes", sender="owner1", kind=kind, via="it", role="owner", thread=thread)
+        box.unread(ack=True)
+
+    def test_owner_typed_last_terminal_allowed(self):
+        self.owner_event(kind="message", thread="t0")
+        time.sleep(1.1)
+        self.append(self.sid, self.user("human", "do X"))
+        self.assertEqual(self.ask(self.sid).stdout, "", "typed after the chat message — the terminal")
+
+    def test_answer_from_thread_later_moves_to_thread(self):
+        self.append(self.sid, self.user("human", "do X", offset_s=-120))
+        self.owner_event(kind="answer", thread="t1")
+        r = self.ask(self.sid)
+        self.assertTrue(self.denied(r))
+        self.assertIn("--thread t1", r.stdout)
+
+    def test_woken_from_chat_asks_in_that_thread(self):
+        self.append(self.sid, self.user("human", "/inbox"))
+        self.owner_event(kind="message", thread="t2")
+        r = self.ask(self.sid)
+        self.assertTrue(self.denied(r))
+        self.assertIn("--thread t2", r.stdout)
+
+    def test_turn_from_another_session_asks_in_chat(self):
+        self.append(self.sid, self.user("human", "do X", offset_s=-600), self.user("peer", "from a session"))
+        r = self.ask(self.sid)
+        self.assertTrue(self.denied(r))
+        self.assertIn("--to owner1", r.stdout)
+
+    def test_bot_session_refused_with_ready_command(self):
+        r = self.ask(self.sid)   # nobody typed, no chat event — chat, the DM form
+        self.assertTrue(self.denied(r))
+        self.assertIn("aimost post --via it --to owner1 --ask", r.stdout)

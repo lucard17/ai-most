@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from typing import List
 
 from . import inbox
@@ -64,7 +65,14 @@ def main(argv: List[str]) -> int:
             if a.value:
                 inbox.set_mode(a.role, a.value, if_unset=a.if_unset)
             m, src = inbox.mode_of(a.role)
-            print(f"{m} ({src})")
+            if src.startswith("label") or m == "cli":
+                print(f"{m} ({src})" if src.startswith("label") else f"{m} (auto: {src})")
+                return 0
+            at, via, thread = inbox.owner_at(a.role)
+            last = (f"; owner's latest chat word {time.strftime('%d.%m %H:%M', time.localtime(at))} "
+                    f"{('thread ' + thread) if thread else 'DM'}") if at else ""
+            print(f"{m} (auto: {src}; questions where the owner spoke last — the terminal when typed into this turn, "
+                  f"else chat{last})")
             return 0
         box = inbox.Inbox(a.role)
         if a.cmd == "put":

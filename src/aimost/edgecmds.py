@@ -367,5 +367,7 @@ register(Command("agent", "who", "edge", "your roles with state and unread count
 register(Command("agent", "waiting", "bridge", "the “Waiting for you” list"))
 register(Command("agent", "mute", "bridge", "mute the role in this thread", "<role>", role_arg=0))
 register(Command("agent", "follow", "bridge", "the role follows this thread again", "<role>", role_arg=0))
+register(Command("agent", "mode", "bridge", "the role's inbox mode: where it is woken and asks you", "<role> [cli|chat|auto]",
+                 role_arg=0))
 register(Command("agent", "ask", "session", "ask a role; arrives in its inbox", "<role> \"<text>\"",
                  who=("owner", "person"), role_arg=0, min_args=2))

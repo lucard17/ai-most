@@ -91,3 +91,30 @@ class TurnEnded(SessionTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TypedInTurn(SessionTest):
+    """The owner's typing in the current turn only (authority: a session with a bot asks where the owner spoke last)."""
+
+    def at(self, *recs) -> int:
+        sid = self.session("s")
+        self.append(sid, *recs)
+        return to.typed_in_turn(str(self.transcript(sid)))
+
+    def test_typed_turn_start(self):
+        import time
+        self.assertAlmostEqual(self.at(self.user("human", "do X", offset_s=-60)), time.time() - 60, delta=3)
+
+    def test_wake_or_peer_turn_without_typing_is_zero(self):
+        self.assertEqual(self.at(self.user("human", "/inbox")), 0)
+        self.assertEqual(self.at(self.user("human", "do X", offset_s=-600), self.user("peer", "from a session")), 0,
+                         "typing of an earlier turn does not count")
+        self.assertEqual(self.at(self.user("peer"), self.queued("peer", -5)), 0)
+
+    def test_typed_into_a_wake_turn(self):
+        import time
+        self.assertAlmostEqual(self.at(self.user("human", "/inbox", offset_s=-90), self.queued("human", -30)),
+                               time.time() - 30, delta=3)
+
+    def test_no_transcript(self):
+        self.assertEqual(to.typed_in_turn(str(self.tmp / "none.jsonl")), 0)
