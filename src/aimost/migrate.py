@@ -13,6 +13,7 @@ The file formats are the same; only places change:
     state chat-activity         → <state>/activity   (without avatars/)
     state chat-link             → <state>/link       (snoozes, discussions, cursors)
     state chat-asks             → <state>/asks       (question registry)
+    state chat-mr-watch         → <state>/gitlab     (merge requests linked to sessions — the same format)
 
 A destination file that exists is kept (reported), never overwritten; ``*.lock`` and ``*.tmp`` are skipped. Copies are
 0600 in 0700 directories. Connection keys with no meaning here are reported (``DROPPED_KEYS``). Dry run by default.
@@ -29,16 +30,14 @@ from . import connections, paths
 
 CONFIG_FILES = ("default", "confirm-patterns", "confirm-deny", "private-patterns", "peer-readonly")
 STATE_DIRS = (("chat-inbox", "inbox"), ("chat-confirm", "marks"), ("chat-activity", "activity"),
-              ("chat-link", "link"), ("chat-asks", "asks"))
+              ("chat-link", "link"), ("chat-asks", "asks"), ("chat-mr-watch", "gitlab"))
 SKIP_DIRS = {"avatars", "__pycache__"}
 # connection keys of the predecessor that ai-most does not read, and why
 DROPPED_KEYS = {
     "PLAN": "answers into a task tracker — an answer-sink plugin now",
     "REVIEW_SESSIONS": "review admission — an admission plugin now",
 }
-NOT_MIGRATED = {
-    "chat-mr-watch": "GitLab MR state — the GitLab plugin starts afresh",
-}
+NOT_MIGRATED: dict = {}   # state of the predecessor that is not imported, and why
 
 
 class Item:
