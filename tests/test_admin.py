@@ -10,6 +10,7 @@ import os
 import unittest
 from unittest import mock
 
+import helpers
 from helpers import IsolatedTest
 from fakechat import Chat
 
@@ -348,3 +349,14 @@ class Switch(IsolatedTest):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ButtonPath(unittest.TestCase):
+    def test_old_path_by_setting(self):
+        import subprocess, sys, os
+        code = "from aimost_admin import executor; print(executor.BUTTON_PATH)"
+        run = lambda v: subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                                       env=dict(os.environ, PYTHONPATH=helpers.SRC, EDGE_ADMIN_BUTTON_PATH=v))
+        self.assertEqual(run("").stdout.strip(), "/admin-press")
+        self.assertEqual(run("/admin").stdout.strip(), "/admin")
+        self.assertNotEqual(run("/../x").returncode, 0)
