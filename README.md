@@ -10,7 +10,7 @@ in the same chat.
   by a peer is read-only;
 - questions with buttons, confirmation ✅/❌ before dangerous actions, several chat servers, GitLab MR events.
 
-**Status: 0.1.4.** Ported from a version that runs daily in a private setup; every module is tested,
+**Status: 0.1.5.** Ported from a version that runs daily in a private setup; every module is tested,
 also against a real disposable Mattermost. Behaviour is specified in [openspec/specs](openspec/specs); why it is built
 this way — [docs/decisions.md](docs/decisions.md).
 
